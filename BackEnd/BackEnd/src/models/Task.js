@@ -6,6 +6,7 @@ const TaskSchema = new mongoose.Schema({
   description: { type: String },
   completed: { type: Boolean, default: false },
   dueDate: { type: Date },
+  duration: {type: Number},
   createdAt: { type: Date, default: Date.now },
 });
 

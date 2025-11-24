@@ -12,9 +12,9 @@ interface TaskFormProps {
 export default function TaskForm({ onClose }: TaskFormProps) {
   const { addTask } = useAppContext();
   const [name, setName] = useState("");
-  const [description, setDescription] = useState(""); // 🔥 thêm description
-  const [hours, setHours] = useState("1");
-  const [minutes, setMinutes] = useState("0");
+  const [description, setDescription] = useState("");
+  const [hours, setHours] = useState("0");
+  const [minutes, setMinutes] = useState("25"); // mặc định Pomodoro
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,29 +29,34 @@ export default function TaskForm({ onClose }: TaskFormProps) {
     const h = parseInt(hours) || 0;
     const m = parseInt(minutes) || 0;
     const totalMinutes = h * 60 + m;
-
+    console.log("📝 Creating task with duration:", totalMinutes); // ✅ Debug
     if (totalMinutes <= 0) {
       setError("Thời gian phải lớn hơn 0");
       return;
     }
 
-    // 🔥 Tính dueDate = currentTime + totalMinutes
+    // 🔥 Tạo task với duration
     const dueDate = new Date(Date.now() + totalMinutes * 60 * 1000);
 
     try {
-      // 🔥 gọi API
-      const createdTask = await postTask(name, description, dueDate);
+      const createdTask = await postTask(
+        name,
+        description,
+        dueDate,
+        totalMinutes
+      );
+      // lưu duration luôn
+      const taskWithDuration = { ...createdTask, duration: totalMinutes };
+      console.log("✅ Task created:", taskWithDuration); // ✅ Debug
 
-      // cập nhật context
-      addTask(createdTask);
+      addTask(taskWithDuration);
 
-      // reset form
       setName("");
       setDescription("");
-      setHours("1");
+      setHours("0");
       setMinutes("0");
       onClose();
-      toast.success('Tạo công việc mới thành công');
+      toast.success("Tạo công việc mới thành công");
     } catch (err) {
       console.error(err);
       setError("Không thể tạo công việc. Vui lòng thử lại.");
@@ -71,7 +76,6 @@ export default function TaskForm({ onClose }: TaskFormProps) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Title */}
         <div>
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">
             Tên công việc
@@ -85,7 +89,6 @@ export default function TaskForm({ onClose }: TaskFormProps) {
           />
         </div>
 
-        {/* Description */}
         <div>
           <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">
             Mô tả
@@ -98,7 +101,6 @@ export default function TaskForm({ onClose }: TaskFormProps) {
           />
         </div>
 
-        {/* Time */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-bold">Giờ</label>
@@ -124,7 +126,6 @@ export default function TaskForm({ onClose }: TaskFormProps) {
           </div>
         </div>
 
-        {/* Buttons */}
         <div className="flex gap-3 pt-2">
           <button
             type="submit"

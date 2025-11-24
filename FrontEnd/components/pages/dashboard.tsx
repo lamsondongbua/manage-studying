@@ -4,25 +4,30 @@ import { useState, useEffect, useRef } from "react";
 import { useAppContext } from "@/contexts/app-context";
 import TaskForm from "@/components/dashboard/task-form";
 import TaskList from "@/components/dashboard/task-list";
-import TaskEditModal from "../dashboard/taskeditmodal";
-import instance from "../../util/axiosCustomize";
+import TaskEditModal from "@/components/dashboard/taskeditmodal";
 import { Task } from "@/types/index";
+import {
+  getTasks,
+  updateTaskByID,
+  deleteTaskByID,
+} from "@/services/apiServices";
 
 export default function Dashboard() {
-  const { tasks, setTasks, addTask, removeTask, updateTask, startTask } =
+  const { tasks, setTasks, removeTask, updateTask, startTask } =
     useAppContext();
+
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const isFetching = useRef(false);
 
   useEffect(() => {
-    const getTasks = async () => {
+    const fetchTasks = async () => {
       if (isFetching.current) return;
 
       isFetching.current = true;
       try {
-        const res = await instance.get("/api/tasks");
-        setTasks(res.data);
+        const res = await getTasks();
+        setTasks(res);
       } catch (err) {
         console.error("Lỗi fetch tasks:", err);
       } finally {
@@ -30,9 +35,8 @@ export default function Dashboard() {
       }
     };
 
-    getTasks();
-  }, []);
-
+    fetchTasks();
+  }, [setTasks]);
 
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
@@ -45,8 +49,8 @@ export default function Dashboard() {
     dueDate?: string;
   }) => {
     try {
-      const res = await instance.put(`/api/tasks/${taskData.id}`, taskData);
-      updateTask(res.data);
+      const res = await updateTaskByID(taskData.id, taskData);
+      updateTask(res);
       setEditingTask(null);
     } catch (err) {
       console.error("Lỗi update task:", err);
@@ -55,29 +59,60 @@ export default function Dashboard() {
 
   const handleRemoveTask = async (taskId: string) => {
     try {
-      await instance.delete(`/api/tasks/${taskId}`);
+      await deleteTaskByID(taskId);
       removeTask(taskId);
     } catch (err) {
       console.error("Lỗi xóa task:", err);
     }
   };
 
-  // ✅ Thêm wrapper function để convert taskId sang Task object
+  // ✅ LOGIC MỚI: Start Task → Chuyển thành session, KHÔNG redirect
   const handleStartTask = async (taskId: string) => {
     const task = tasks.find((t) => t._id === taskId);
-    if (!task) return;
+    if (!task) {
+      console.error("Task không tìm thấy!");
+      return;
+    }
+
+    console.log("🎯 Starting task:", task.title);
 
     try {
-      // 1️⃣ Xóa task trên server
-      await instance.delete(`/api/tasks/${taskId}`);
+      // 1️⃣ Gọi startTask từ context
+      // → Xóa task khỏi UI
+      // → Tạo session mới
+      // → Gọi API POST /pomodoro/start
+      // → Thêm session vào context.sessions
+      // → Bật timer
+      await startTask(task);
 
-      // 2️⃣ Xóa task khỏi context
-      startTask(task);
-    } catch (err) {
-      console.error("Lỗi khi start task:", err);
+      console.log("✅ Session created successfully");
+
+      // 2️⃣ Xóa task trên server (async, không block)
+      deleteTaskByID(taskId).catch((err) => {
+        console.warn("⚠️ Không thể xóa task trên server:", err);
+      });
+
+      // ✅ KHÔNG REDIRECT - User tự vào /countdown-page để xem
+      // Hiển thị thông báo
+      alert("✅ Đã tạo phiên học! Vào trang Countdown để xem timer.");
+    } catch (err: any) {
+      console.error("❌ Lỗi khi start task:", err);
+
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Không thể bắt đầu phiên học";
+      alert(`Lỗi: ${errorMsg}\n\nVui lòng thử lại!`);
+
+      // Reload lại tasks để đồng bộ nếu có lỗi
+      try {
+        const res = await getTasks();
+        setTasks(res);
+      } catch (reloadErr) {
+        console.error("Không thể reload tasks:", reloadErr);
+      }
     }
   };
-
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -87,9 +122,11 @@ export default function Dashboard() {
           <h1 className="text-5xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
             Dashboard
           </h1>
-          <p className="text-gray-600 text-lg font-medium">Quản lý công việc</p>
+          <p className="text-gray-600 dark:text-gray-400 text-lg font-medium">
+            Quản lý công việc
+          </p>
         </div>
-        <p className="text-gray-500 max-w-2xl mx-auto">
+        <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
           Tổ chức các phiên học tập của bạn và bắt đầu học
         </p>
       </div>
@@ -110,7 +147,7 @@ export default function Dashboard() {
       {/* TASK LIST */}
       <TaskList
         tasks={tasks}
-        onStartTask={handleStartTask} // ✅ Truyền wrapper function thay vì startTask trực tiếp
+        onStartTask={handleStartTask}
         onRemoveTask={handleRemoveTask}
         onEditTask={handleEditTask}
       />

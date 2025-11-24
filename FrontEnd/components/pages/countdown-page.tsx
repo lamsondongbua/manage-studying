@@ -1,143 +1,211 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useAppContext } from '@/contexts/app-context';
-import TimerDisplay from '@/components/countdown/timer-display';
-import SessionCard from '@/components/countdown/session-card';
-import CompletedTasks from '@/components/countdown/completed-tasks';
+import { useState, useEffect } from "react";
+import { useAppContext } from "@/contexts/app-context";
+import TimerDisplay from "@/components/countdown/timer-display";
+import SessionCard from "@/components/countdown/session-card";
+import CompletedTasks from "@/components/countdown/completed-tasks";
 
 export default function CountdownPage() {
-  const { sessions, completeSession } = useAppContext();
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const [breakTime, setBreakTime] = useState(0);
-  const [isBreak, setIsBreak] = useState(false);
-  const [showCompletedOnly, setShowCompletedOnly] = useState(false);
+  const {
+    sessions,
+    fetchHistory,
+    activeSessionId,
+    completeSession,
+    timeRemaining,
+    isRunning,
+    pauseTimer,
+    resumeTimer,
+    switchToSession,
+    // ✅ POMODORO CYCLE
+    isBreakTime,
+    breakDuration,
+    completedSessionsCount,
+    shortBreakMinutes,
+    longBreakMinutes,
+    setShortBreakMinutes,
+    setLongBreakMinutes,
+    skipBreak,
+  } = useAppContext();
 
-  const activeSession = sessions.find(s => s.id === activeSessionId);
-  const activeRunningSession = sessions.find(s => s.status === 'running' && s.id === activeSessionId);
-  const completedSessions = sessions.filter(s => s.status === 'completed');
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null
+  );
 
+  // Load sessions on mount
   useEffect(() => {
-    if (!isRunning || !activeSessionId) return;
+    fetchHistory().catch(console.error);
+  }, [fetchHistory]);
 
-    const interval = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
-          setIsRunning(false);
-          playNotificationSound();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isRunning, activeSessionId]);
-
-  const playNotificationSound = () => {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    oscillator.frequency.value = 800;
-    oscillator.type = 'sine';
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.5);
-  };
-
-  const handleSelectSession = (sessionId: string) => {
-    if (activeSessionId === sessionId) return;
-
-    setActiveSessionId(sessionId);
-    const session = sessions.find(s => s.id === sessionId);
-    if (session) {
-      setTimeRemaining(session.duration * 60);
-      setIsRunning(false);
-      setIsBreak(false);
-      setBreakTime(0);
+  // Auto-select active session
+  useEffect(() => {
+    if (activeSessionId && activeSessionId !== selectedSessionId) {
+      console.log("🔄 Auto-selecting new active session:", activeSessionId);
+      setSelectedSessionId(activeSessionId);
     }
-  };
+  }, [activeSessionId, selectedSessionId]);
 
-  const handleStartPause = () => {
-    if (!activeSessionId) {
-      const firstSession = sessions.find(s => s.status === 'running');
-      if (firstSession) {
-        handleSelectSession(firstSession.id);
-      }
+  const selectedSession = sessions.find((s) => s.id === selectedSessionId);
+
+  // ✅ SIMPLIFIED: Lấy thông tin hiển thị trực tiếp từ context
+  const displayTimeRemaining =
+    selectedSessionId === activeSessionId
+      ? timeRemaining
+      : selectedSession?.timeRemaining ?? (selectedSession?.duration ?? 0) * 60;
+
+  const displayIsRunning = selectedSessionId === activeSessionId && isRunning;
+
+  // DEBUG
+  useEffect(() => {
+    console.log("=== COUNTDOWN PAGE STATE ===");
+    console.log("Selected session ID:", selectedSessionId);
+    console.log("Active session ID:", activeSessionId);
+    console.log("Context timeRemaining:", timeRemaining);
+    console.log("Context isRunning:", isRunning);
+    console.log("Display timeRemaining:", displayTimeRemaining);
+    console.log("Display isRunning:", displayIsRunning);
+    console.log("Selected session:", selectedSession);
+  }, [
+    selectedSessionId,
+    activeSessionId,
+    timeRemaining,
+    isRunning,
+    displayTimeRemaining,
+    displayIsRunning,
+    selectedSession,
+  ]);
+
+  // ✅ SIMPLIFIED: Handle start/pause
+  const handleStartPause = async () => {
+    if (!selectedSessionId || !selectedSession) {
+      console.error("❌ No session selected");
       return;
     }
-    setIsRunning(!isRunning);
+
+    console.log("🎯 handleStartPause:", {
+      selectedSessionId,
+      activeSessionId,
+      isActive: selectedSessionId === activeSessionId,
+      isRunning,
+    });
+
+    // Nếu là active session → toggle pause/resume
+    if (selectedSessionId === activeSessionId) {
+      if (isRunning) {
+        console.log("⏸️ Pausing");
+        await pauseTimer();
+      } else {
+        console.log("▶️ Resuming");
+        await resumeTimer();
+      }
+    } else {
+      // Khác session → switch và auto-start
+      console.log("🔄 Switching and starting");
+      await switchToSession(selectedSessionId, true);
+    }
   };
 
   const handleComplete = () => {
-    if (activeSessionId) {
-      completeSession(activeSessionId);
-      setActiveSessionId(null);
-      setTimeRemaining(0);
-      setIsRunning(false);
+    if (selectedSessionId) {
+      completeSession(selectedSessionId);
     }
   };
 
-  const runningAndPendingSessions = sessions.filter(s => s.status === 'running');
+  const handleSelectSession = async (sessionId: string) => {
+    console.log("📌 Selecting session:", sessionId);
+
+    // Nếu đang chạy session khác, pause nó trước
+    if (activeSessionId && activeSessionId !== sessionId && isRunning) {
+      console.log("⏸️ Auto-pausing current session");
+      await pauseTimer();
+    }
+
+    setSelectedSessionId(sessionId);
+
+    // Switch context để sync timeRemaining
+    if (sessionId !== activeSessionId) {
+      await switchToSession(sessionId, false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50 dark:from-slate-950 dark:via-purple-950 dark:to-blue-950 p-8">
       <div className="max-w-6xl mx-auto">
+        {/* HEADER */}
         <div className="mb-10 animate-fade-in">
           <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 dark:from-purple-400 dark:via-indigo-400 dark:to-cyan-400 bg-clip-text text-transparent mb-2">
             Countdown Timer
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 font-medium">Tập trung vào công việc hiện tại và quản lý thời gian hiệu quả</p>
+          <p className="text-gray-600 dark:text-gray-400 font-medium">
+            Tập trung vào công việc hiện tại và quản lý thời gian hiệu quả
+          </p>
         </div>
 
+        {/* GRID 2/3 - 1/3 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Timer Display */}
+          {/* LEFT: Timer + Session list */}
           <div className="lg:col-span-2">
+            {/* TIMER */}
             <TimerDisplay
-              session={activeSession}
-              timeRemaining={timeRemaining}
-              isRunning={isRunning}
-              isBreak={isBreak}
-              breakTime={breakTime}
+              session={selectedSession}
+              timeRemaining={displayTimeRemaining}
+              isRunning={displayIsRunning}
+              isBreak={isBreakTime}
+              breakTime={breakDuration}
               onStartPause={handleStartPause}
               onComplete={handleComplete}
-              onSetBreakTime={setBreakTime}
+              onSetBreakTime={(minutes) => {
+                // Not used anymore - using context state
+              }}
+              shortBreakMinutes={shortBreakMinutes}
+              longBreakMinutes={longBreakMinutes}
+              onSetShortBreak={setShortBreakMinutes}
+              onSetLongBreak={setLongBreakMinutes}
+              onSkipBreak={skipBreak}
+              completedSessionsCount={completedSessionsCount}
             />
 
-            {/* Session List */}
+            {/* SESSION LIST */}
             <div className="mt-8 animate-slide-up">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-5">Danh sách phiên học</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-5">
+                Danh sách phiên học
+              </h2>
+
               <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                {runningAndPendingSessions.length === 0 ? (
-                  <div className="text-center py-10 bg-white dark:bg-slate-800 rounded-2xl border-2 border-dashed border-gray-300 dark:border-slate-700 shadow-soft">
-                    <p className="text-gray-600 dark:text-gray-400 font-medium">Không có phiên học nào đang chờ. Hãy thêm từ Dashboard!</p>
-                  </div>
-                ) : (
-                  runningAndPendingSessions.map((session, idx) => (
-                    <div key={session.id} style={{ animationDelay: `${idx * 50}ms` }} className="animate-scale-in">
+                {sessions
+                  .filter((s) => s.status !== "completed")
+                  .map((s, idx) => (
+                    <div
+                      key={s.id}
+                      style={{ animationDelay: `${idx * 40}ms` }}
+                      className="animate-scale-in relative"
+                    >
                       <SessionCard
-                        session={session}
-                        isActive={activeSessionId === session.id}
-                        onClick={() => handleSelectSession(session.id)}
+                        session={s}
+                        isActive={s.id === selectedSessionId}
+                        onClick={() => handleSelectSession(s.id)}
                       />
+
+                      {/* Badge cho session đang chạy */}
+                      {s.id === activeSessionId && isRunning && (
+                        <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-green-500/90 backdrop-blur-sm rounded-full">
+                          <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                          <span className="text-[10px] text-white font-bold uppercase tracking-wide">
+                            Running
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  ))
-                )}
+                  ))}
               </div>
             </div>
           </div>
 
-          {/* Sidebar - Completed Tasks */}
+          {/* RIGHT: Completed tasks */}
           <div className="lg:col-span-1">
-            <CompletedTasks sessions={completedSessions} />
+            <CompletedTasks
+              sessions={sessions.filter((s) => s.status === "completed")}
+            />
           </div>
         </div>
       </div>
