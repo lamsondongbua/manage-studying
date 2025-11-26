@@ -37,27 +37,34 @@ export default function CountdownPage() {
     fetchHistory().catch(console.error);
   }, [fetchHistory]);
 
-  // Auto-select active session
+  // Auto-select active session or clear selection when break starts
   useEffect(() => {
-    if (activeSessionId && activeSessionId !== selectedSessionId) {
+    if (isBreakTime) {
+      // Khi vào break, clear selected session
+      console.log("☕ Break time - clearing selection");
+      setSelectedSessionId(null);
+    } else if (activeSessionId && activeSessionId !== selectedSessionId) {
       console.log("🔄 Auto-selecting new active session:", activeSessionId);
       setSelectedSessionId(activeSessionId);
     }
-  }, [activeSessionId, selectedSessionId]);
+  }, [activeSessionId, selectedSessionId, isBreakTime]);
 
   const selectedSession = sessions.find((s) => s.id === selectedSessionId);
 
-  // ✅ SIMPLIFIED: Lấy thông tin hiển thị trực tiếp từ context
-  const displayTimeRemaining =
-    selectedSessionId === activeSessionId
-      ? timeRemaining
-      : selectedSession?.timeRemaining ?? (selectedSession?.duration ?? 0) * 60;
+  // ✅ UPDATED: Hiển thị break hoặc session
+  const displayTimeRemaining = isBreakTime
+    ? timeRemaining // Nếu đang break → dùng timeRemaining từ context
+    : selectedSessionId === activeSessionId
+    ? timeRemaining
+    : selectedSession?.timeRemaining ?? (selectedSession?.duration ?? 0) * 60;
 
-  const displayIsRunning = selectedSessionId === activeSessionId && isRunning;
+  const displayIsRunning = isRunning; // isRunning đã bao gồm cả break và session
 
   // DEBUG
   useEffect(() => {
     console.log("=== COUNTDOWN PAGE STATE ===");
+    console.log("Is Break Time:", isBreakTime);
+    console.log("Break Duration:", breakDuration);
     console.log("Selected session ID:", selectedSessionId);
     console.log("Active session ID:", activeSessionId);
     console.log("Context timeRemaining:", timeRemaining);
@@ -66,6 +73,8 @@ export default function CountdownPage() {
     console.log("Display isRunning:", displayIsRunning);
     console.log("Selected session:", selectedSession);
   }, [
+    isBreakTime,
+    breakDuration,
     selectedSessionId,
     activeSessionId,
     timeRemaining,
@@ -75,8 +84,22 @@ export default function CountdownPage() {
     selectedSession,
   ]);
 
-  // ✅ SIMPLIFIED: Handle start/pause
+  // ✅ UPDATED: Handle start/pause - hỗ trợ cả break và session
   const handleStartPause = async () => {
+    // Nếu đang break → toggle break timer
+    if (isBreakTime) {
+      console.log("🎯 Toggle break timer");
+      if (isRunning) {
+        console.log("⏸️ Pausing break");
+        await pauseTimer();
+      } else {
+        console.log("▶️ Resuming break");
+        await resumeTimer();
+      }
+      return;
+    }
+
+    // Nếu là session
     if (!selectedSessionId || !selectedSession) {
       console.error("❌ No session selected");
       return;
@@ -92,10 +115,10 @@ export default function CountdownPage() {
     // Nếu là active session → toggle pause/resume
     if (selectedSessionId === activeSessionId) {
       if (isRunning) {
-        console.log("⏸️ Pausing");
+        console.log("⏸️ Pausing session");
         await pauseTimer();
       } else {
-        console.log("▶️ Resuming");
+        console.log("▶️ Resuming session");
         await resumeTimer();
       }
     } else {
@@ -115,7 +138,12 @@ export default function CountdownPage() {
     console.log("📌 Selecting session:", sessionId);
 
     // Nếu đang chạy session khác, pause nó trước
-    if (activeSessionId && activeSessionId !== sessionId && isRunning) {
+    if (
+      activeSessionId &&
+      activeSessionId !== sessionId &&
+      isRunning &&
+      !isBreakTime
+    ) {
       console.log("⏸️ Auto-pausing current session");
       await pauseTimer();
     }
@@ -187,14 +215,16 @@ export default function CountdownPage() {
                       />
 
                       {/* Badge cho session đang chạy */}
-                      {s.id === activeSessionId && isRunning && (
-                        <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-green-500/90 backdrop-blur-sm rounded-full">
-                          <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                          <span className="text-[10px] text-white font-bold uppercase tracking-wide">
-                            Running
-                          </span>
-                        </div>
-                      )}
+                      {s.id === activeSessionId &&
+                        isRunning &&
+                        !isBreakTime && (
+                          <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-green-500/90 backdrop-blur-sm rounded-full">
+                            <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                            <span className="text-[10px] text-white font-bold uppercase tracking-wide">
+                              Running
+                            </span>
+                          </div>
+                        )}
                     </div>
                   ))}
               </div>

@@ -1,12 +1,13 @@
+// app-context.tsx
 "use client";
 
 import React, {
   createContext,
-  useContext,
-  useState,
   useCallback,
-  useRef,
+  useContext,
   useEffect,
+  useRef,
+  useState,
 } from "react";
 import { Task, Session } from "@/types/index";
 import {
@@ -17,33 +18,63 @@ import {
   pomodoroResume,
 } from "@/services/apiServices";
 
+/**
+ * AppContext (FULL) - Dual timers (session + break) + Tasks + History
+ *
+ * Assumptions based on your choices:
+ * - Session object shape matches your interface (duration in minutes, timeRemaining in seconds optional)
+ * - When starting a session we create it on backend via pomodoroStart (so backend returns id)
+ * - Breaks are local-only (not persisted)
+ * - Long break after every 3 completed sessions (newCount % 3 === 0)
+ * - Auto flow: session end -> auto start break; break end -> auto start next pending session (if any)
+ */
+
 interface AppContextType {
   // TASKS
   tasks: Task[];
-  setTasks: (tasks: Task[]) => void;
-  addTask: (task: Task) => void;
-  updateTask: (task: Task) => void;
-  removeTask: (taskId: string) => void;
-  startTask: (task: Task) => Promise<void>;
+  setTasks: (t: Task[]) => void;
+  addTask: (t: Task) => void;
+  updateTask: (t: Task) => void;
+  removeTask: (id: string) => void;
+  startTask: (t: Task) => Promise<void>;
 
-  // SESSION
+  // SESSIONS + HISTORY
   sessions: Session[];
-  setSessions: (sessions: Session[]) => void;
+  setSessions: (s: Session[]) => void;
   fetchHistory: () => Promise<void>;
-  startSession: (sessionFromUI: Session) => Promise<void>;
+  startSession: (s: Partial<Session>) => Promise<void>;
   completeSession: (sessionId: string) => Promise<void>;
 
-  // TIMER
+  // ACTIVE / TIMERS
   activeSessionId: string | null;
+
+  // Dual timers
+  sessionTimeRemaining: number; // seconds (session)
+  breakTimeRemaining: number; // seconds (break)
+  // legacy convenience alias used by some UI: (if you used timeRemaining previously)
   timeRemaining: number;
-  isRunning: boolean;
-  pauseTimer: () => void;
-  resumeTimer: () => void;
+
+  // run state
+  isRunning: boolean; // indicates if any timer (session OR break) currently running
+  // pause/resume operate with knowledge of break vs session
+  pauseTimer: () => Promise<void>;
+  resumeTimer: () => Promise<void>;
   startCountdown: () => void;
 
+  // session switching + cleanup
   getTotalTime: () => number;
   cleanupActiveSession: () => Promise<void>;
   switchToSession: (sessionId: string, autoStart?: boolean) => Promise<void>;
+
+  // BREAK CONTROL
+  isBreakTime: boolean;
+  breakDuration: number; // minutes (current configured break duration)
+  completedSessionsCount: number;
+  shortBreakMinutes: number;
+  longBreakMinutes: number;
+  setShortBreakMinutes: (m: number) => void;
+  setLongBreakMinutes: (m: number) => void;
+  skipBreak: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -53,56 +84,200 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   // ==================== TASKS ====================
   const [tasks, setTasks] = useState<Task[]>([]);
-
   const addTask = useCallback(
-    (task: Task) => setTasks((prev) => [...prev, task]),
+    (task: Task) => setTasks((p) => [...p, task]),
     []
   );
-
   const updateTask = useCallback(
     (updated: Task) =>
-      setTasks((prev) =>
-        prev.map((t) => (t._id === updated._id ? updated : t))
-      ),
+      setTasks((p) => p.map((t) => (t._id === updated._id ? updated : t))),
     []
   );
-
   const removeTask = useCallback(
-    (id: string) => setTasks((prev) => prev.filter((t) => t._id !== id)),
+    (id: string) => setTasks((p) => p.filter((t) => t._id !== id)),
     []
   );
 
-  // ==================== SESSIONS ====================
+  // Helper: start a task -> create session and start it
+  const startTask = useCallback(
+    async (task: Task) => {
+      // build sessionFromUI (we create session on backend)
+      const sessionFromUI: Partial<Session> = {
+        taskName: task.title,
+        duration: task.duration ?? 25,
+      };
+      // remove the task from task list (your previous behavior)
+      removeTask(task._id);
+      await startSession(sessionFromUI);
+    },
+    [removeTask]
+  );
+
+  // ==================== SESSIONS & TIMERS ====================
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const intervalRef = useRef<number | null>(null);
+
+  // Dual timers in seconds
+  const [sessionTimeRemaining, setSessionTimeRemaining] = useState<number>(0);
+  const [breakTimeRemaining, setBreakTimeRemaining] = useState<number>(0);
+
+  // Running state: indicates timer running (either session or break)
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+
+  // Refs for intervals (separate)
+  const sessionIntervalRef = useRef<number | null>(null);
+  const breakIntervalRef = useRef<number | null>(null);
+
+  // Defaults
   const DEFAULT_POMODORO_MIN = 25;
 
-  // ==================== TIMER FUNCTIONS ====================
-  // 1. Clear interval helper
-  const clearTimerInterval = useCallback(() => {
-    if (intervalRef.current) window.clearInterval(intervalRef.current);
-    intervalRef.current = null;
+  // BREAK state and config
+  const [isBreakTime, setIsBreakTime] = useState<boolean>(false);
+  const [breakDuration, setBreakDuration] = useState<number>(5); // minutes (current active break minutes)
+  const [completedSessionsCount, setCompletedSessionsCount] =
+    useState<number>(0);
+  const [shortBreakMinutes, setShortBreakMinutes] = useState<number>(5);
+  const [longBreakMinutes, setLongBreakMinutes] = useState<number>(15);
+
+  // Convenience alias for legacy UI
+  const timeRemaining = isBreakTime ? breakTimeRemaining : sessionTimeRemaining;
+
+  // ------------------- Clear helpers -------------------
+  const clearSessionInterval = useCallback(() => {
+    if (sessionIntervalRef.current) {
+      window.clearInterval(sessionIntervalRef.current);
+      sessionIntervalRef.current = null;
+    }
+  }, []);
+  const clearBreakInterval = useCallback(() => {
+    if (breakIntervalRef.current) {
+      window.clearInterval(breakIntervalRef.current);
+      breakIntervalRef.current = null;
+    }
   }, []);
 
-  // 2. Complete session (needed by startLocalTimer)
+  // ------------------- Start session timer (local) -------------------
+  const startSessionTimer = useCallback(
+    (sessionId: string) => {
+      // safety
+      clearSessionInterval();
+      // ensure we're not in break mode
+      setIsBreakTime(false);
+      setIsRunning(true);
+
+      sessionIntervalRef.current = window.setInterval(() => {
+        setSessionTimeRemaining((prev) => {
+          // when session ends
+          if (prev <= 1) {
+            clearSessionInterval();
+            setIsRunning(false);
+            // mark session completed locally & call completion flow
+            // Use completeSession to ensure backend is marked
+            // But call with try/catch to avoid unhandled rejection
+            (async () => {
+              try {
+                await completeSession(sessionId);
+              } catch (err) {
+                console.error("completeSession on timer end failed", err);
+              }
+            })();
+
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // store interval id in ref (already done)
+    },
+    [clearSessionInterval]
+  );
+
+  // ------------------- Start break timer (local) -------------------
+  const startBreakTimer = useCallback(() => {
+    clearBreakInterval();
+    setIsBreakTime(true);
+    setIsRunning(true);
+
+    breakIntervalRef.current = window.setInterval(() => {
+      setBreakTimeRemaining((prev) => {
+        if (prev <= 1) {
+          clearBreakInterval();
+          setIsRunning(false);
+          setIsBreakTime(false);
+          // After break ends -> auto start next session if exists
+          setTimeout(() => {
+            startNextSession();
+          }, 500);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [clearBreakInterval]);
+
+  // ------------------- Start next pending session -------------------
+  const startNextSession = useCallback(() => {
+    setSessions((currentSessions) => {
+      const pending = currentSessions.filter((s) => s.status !== "completed");
+      if (pending.length === 0) {
+        // nothing to start
+        setIsBreakTime(false);
+        return currentSessions;
+      }
+      const next = pending[0];
+      // set active session & set session time remaining
+      setIsBreakTime(false);
+      setActiveSessionId(next.id);
+      setSessionTimeRemaining(next.timeRemaining ?? next.duration * 60);
+      setIsRunning(false); // will auto-start after backend resume
+      // auto-start it via backend resume + startSessionTimer
+      setTimeout(async () => {
+        try {
+          await pomodoroResume(next.id);
+          // ensure no leftover interval
+          clearSessionInterval();
+          startSessionTimer(next.id);
+        } catch (err) {
+          console.error("Failed to auto-resume next session", err);
+        }
+      }, 300);
+      return currentSessions;
+    });
+  }, [clearSessionInterval, startSessionTimer]);
+
+  // ------------------- PUBLIC: startBreak -------------------
+  // isLong param chooses long/short break
+  const startBreak = useCallback(
+    (isLong: boolean) => {
+      const minutes = isLong ? longBreakMinutes : shortBreakMinutes;
+      setBreakDuration(minutes);
+      setBreakTimeRemaining(minutes * 60);
+      // auto-start break timer
+      setTimeout(() => {
+        startBreakTimer();
+      }, 200);
+    },
+    [longBreakMinutes, shortBreakMinutes, startBreakTimer]
+  );
+
+  // ------------------- COMPLETE SESSION (manual or auto) -------------------
   const completeSession = useCallback(
     async (sessionId: string) => {
       try {
-        // Stop timer nếu đây là active session
+        // If this was active session locally, stop its timer
         if (activeSessionId === sessionId) {
-          clearTimerInterval();
+          clearSessionInterval();
           setIsRunning(false);
           setActiveSessionId(null);
-          setTimeRemaining(0);
+          setSessionTimeRemaining(0);
         }
 
-        // Gọi API để đánh dấu hoàn thành
-        const completedSession = await pomodoroStop(sessionId);
+        // Call backend to stop/complete the session
+        // (pomodoroStop should return the completed session data)
+        const completed = await pomodoroStop(sessionId);
 
-        // ✅ Cập nhật session trong state
+        // map completedAt and duration/timeRemaining safely
         setSessions((prev) =>
           prev.map((s) =>
             s.id !== sessionId
@@ -110,318 +285,279 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
               : {
                   ...s,
                   status: "completed",
-                  duration: completedSession.duration,
-                  completedAt: completedSession.completedAt,
-                  timeRemaining: 0, // ✅ Set về 0 khi hoàn thành
+                  duration: completed.duration ?? s.duration,
+                  completedAt: completed.completedAt
+                    ? new Date(completed.completedAt)
+                    : new Date(),
+                  timeRemaining: 0,
                 }
           )
         );
 
-        console.log("✅ Session completed:", sessionId);
+        // increment completed sessions count and trigger break
+        setCompletedSessionsCount((count) => {
+          const newCount = count + 1;
+          const isLong = newCount % 3 === 0; // your chosen rule
+          // schedule break
+          setTimeout(() => startBreak(isLong), 500);
+          return newCount;
+        });
       } catch (err) {
         console.error("completeSession error:", err);
+        throw err;
       }
     },
-    [activeSessionId, clearTimerInterval]
+    [activeSessionId, clearSessionInterval, startBreak]
   );
 
-  // 3. Start local countdown timer - KHÔNG dùng useCallback
-  const startLocalTimer = () => {
-    console.log("🚀 startLocalTimer called");
+  // ------------------- START SESSION (create on backend) -------------------
+  const startSession = useCallback(async (sessionFromUI: Partial<Session>) => {
+    try {
+      const duration = sessionFromUI.duration ?? DEFAULT_POMODORO_MIN;
+      // create session on backend
+      const created = await pomodoroStart(
+        sessionFromUI.taskName ?? "Task",
+        duration
+      );
 
-    // Clear existing interval
-    if (intervalRef.current) {
-      window.clearInterval(intervalRef.current);
-      intervalRef.current = null;
+      // Normalize fields (ensure startedAt is Date)
+      const normalized: Session = {
+        id: created.id,
+        taskName: created.taskName ?? sessionFromUI.taskName ?? "Task",
+        duration: created.duration ?? duration,
+        status: created.status ?? "running",
+        startedAt: created.startedAt ? new Date(created.startedAt) : new Date(),
+        completedAt: created.completedAt
+          ? new Date(created.completedAt)
+          : undefined,
+        timeRemaining: (created.timeRemaining ??
+          created.duration * 60) as number,
+      };
+
+      setSessions((prev) => [...prev, normalized]);
+      setActiveSessionId(normalized.id);
+      setSessionTimeRemaining(
+        (normalized.timeRemaining ?? normalized.duration * 60) as number
+      );
+      setIsBreakTime(false);
+      setIsRunning(false);
+
+      // Do not auto-immediately start countdown here; caller can call startCountdown or resumeTimer.
+    } catch (err) {
+      console.error("startSession error:", err);
+      throw err;
+    }
+  }, []);
+
+  // ------------------- PAUSE (session or break) -------------------
+  const pauseTimer = useCallback(async () => {
+    // If break -> just pause local break timer
+    if (isBreakTime) {
+      clearBreakInterval();
+      setIsRunning(false);
+      return;
     }
 
-    intervalRef.current = window.setInterval(() => {
-      setTimeRemaining((prev) => {
-        console.log("⏱️ Tick:", prev);
-
-        if (prev <= 1) {
-          if (intervalRef.current) {
-            window.clearInterval(intervalRef.current);
-            intervalRef.current = null;
-          }
-
-          setIsRunning(false);
-
-          // Get current activeSessionId from ref để tránh stale closure
-          setActiveSessionId((currentId) => {
-            if (currentId) {
-              console.log(
-                "⏰ Timer finished! Auto-completing session:",
-                currentId
-              );
-              completeSession(currentId).catch(console.error);
-            }
-            return null;
-          });
-
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    setIsRunning(true);
-    console.log("✅ Local timer started, interval ID:", intervalRef.current);
-  };
-
-  // 4. Pause timer and save to backend
-  const pauseTimer = useCallback(async () => {
-    clearTimerInterval();
+    // if session -> stop interval and call backend pause
+    clearSessionInterval();
     setIsRunning(false);
 
     if (activeSessionId) {
       try {
         await pomodoroPause(activeSessionId);
-        console.log("⏸️ Timer paused and saved to backend");
-      } catch (err) {
-        console.error("Failed to pause on backend:", err);
-      }
-    }
-  }, [activeSessionId, clearTimerInterval]);
-
-  // 5. Resume timer from backend - KHÔNG dùng useCallback dependencies
-  const resumeTimer = useCallback(async () => {
-    console.log("🔄 resumeTimer called");
-
-    // Get fresh values từ state
-    setActiveSessionId((currentId) => {
-      if (!currentId) {
-        console.error("❌ No active session ID");
-        return currentId;
-      }
-
-      console.log("▶️ Resuming session:", currentId);
-
-      // Call API và start timer
-      pomodoroResume(currentId)
-        .then(() => {
-          console.log("✅ Backend resumed, starting countdown");
-          startLocalTimer();
-        })
-        .catch((err) => {
-          console.error("❌ Failed to resume:", err);
-        });
-
-      return currentId;
-    });
-  }, []);
-
-  // 6. Start countdown (for UI button)
-  const startCountdown = useCallback(() => {
-    if (activeSessionId && timeRemaining > 0) {
-      startLocalTimer();
-    }
-  }, [activeSessionId, timeRemaining, startLocalTimer]);
-
-  // 7. Cleanup active session (for logout/unmount)
-  const cleanupActiveSession = useCallback(async () => {
-    if (activeSessionId && isRunning) {
-      try {
-        clearTimerInterval();
-        setIsRunning(false);
-
-        // ✅ Chỉ gọi API nếu session còn tồn tại
-        const session = sessions.find(
-          (s) => s.id === activeSessionId && s.status !== "completed"
+        // update session timeRemaining on local state
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id !== activeSessionId
+              ? s
+              : { ...s, timeRemaining: sessionTimeRemaining }
+          )
         );
-        if (session) {
-          await pomodoroPause(activeSessionId);
-          console.log("🔒 Auto-paused session on cleanup");
-        } else {
-          console.log("⚠️ Session not found or already completed, skip pause");
-        }
       } catch (err) {
-        // ✅ Silent fail - không quan trọng nếu cleanup fail
-        console.warn("⚠️ Failed to auto-pause (non-critical):", err.message);
+        console.error("pomodoroPause failed:", err);
       }
     }
-  }, [activeSessionId, isRunning, clearTimerInterval, sessions]);
+  }, [
+    activeSessionId,
+    isBreakTime,
+    sessionTimeRemaining,
+    clearSessionInterval,
+  ]);
 
-  // 8. Switch to a different session
+  // ------------------- RESUME (session OR break) -------------------
+  const resumeTimer = useCallback(async () => {
+    // If break -> resume local break timer (don't call backend)
+    if (isBreakTime) {
+      // if breakTimeRemaining > 0 start break interval
+      if (breakTimeRemaining > 0 && !breakIntervalRef.current) {
+        startBreakTimer();
+      }
+      return;
+    }
+
+    // Session resume: call backend resume + start local session timer
+    if (!activeSessionId) {
+      console.warn("resumeTimer called but no activeSessionId");
+      return;
+    }
+
+    try {
+      await pomodoroResume(activeSessionId);
+    } catch (err) {
+      console.error("pomodoroResume failed:", err);
+    }
+
+    // ensure fresh local timers
+    clearSessionInterval();
+    startSessionTimer(activeSessionId);
+  }, [
+    isBreakTime,
+    breakTimeRemaining,
+    startBreakTimer,
+    activeSessionId,
+    clearSessionInterval,
+    startSessionTimer,
+  ]);
+
+  // ------------------- startCountdown (convenience) -------------------
+  const startCountdown = useCallback(() => {
+    if (isBreakTime) {
+      if (breakTimeRemaining > 0) startBreakTimer();
+      return;
+    }
+    if (activeSessionId && sessionTimeRemaining > 0) {
+      // Note: assumes backend resume already handled by caller. We'll start local timer.
+      clearSessionInterval();
+      startSessionTimer(activeSessionId);
+    }
+  }, [
+    isBreakTime,
+    breakTimeRemaining,
+    activeSessionId,
+    sessionTimeRemaining,
+    startBreakTimer,
+    clearSessionInterval,
+    startSessionTimer,
+  ]);
+
+  // ------------------- switchToSession -------------------
+  // Switch context to another session (optionally autoStart)
   const switchToSession = useCallback(
     async (sessionId: string, autoStart: boolean = false) => {
       try {
-        console.log("🔄 switchToSession called:", {
-          sessionId,
-          autoStart,
-          currentActive: activeSessionId,
-        });
-
-        // Pause current active session if running
-        if (activeSessionId && activeSessionId !== sessionId && isRunning) {
-          console.log("⏸️ Pausing current session:", activeSessionId);
+        // if currently running a different session -> pause it
+        if (
+          activeSessionId &&
+          activeSessionId !== sessionId &&
+          isRunning &&
+          !isBreakTime
+        ) {
           await pauseTimer();
         }
 
-        // Find the target session
-        const targetSession = sessions.find((s) => s.id === sessionId);
-        if (!targetSession) {
-          console.error("❌ Session not found:", sessionId);
+        const target = sessions.find((s) => s.id === sessionId);
+        if (!target) {
+          console.warn("switchToSession: session not found", sessionId);
           return;
         }
 
-        const newTimeRemaining =
-          targetSession.timeRemaining ?? targetSession.duration * 60;
-
-        console.log("📝 Setting new session state:", {
-          sessionId,
-          timeRemaining: newTimeRemaining,
-          duration: targetSession.duration,
-        });
-
-        // Set new active session
+        const newTimeRemaining = target.timeRemaining ?? target.duration * 60;
+        // switch active
         setActiveSessionId(sessionId);
-        setTimeRemaining(newTimeRemaining);
+        setSessionTimeRemaining(newTimeRemaining);
+        setIsBreakTime(false);
         setIsRunning(false);
 
-        // ✅ Auto-start nếu được yêu cầu
-        if (autoStart && newTimeRemaining > 0) {
-          console.log("▶️ Auto-starting session in 100ms:", sessionId);
-          // Delay để đảm bảo state đã cập nhật
-          setTimeout(async () => {
-            console.log("🚀 Executing auto-start for:", sessionId);
-            try {
-              await pomodoroResume(sessionId);
-              console.log("✅ Backend resumed, calling startLocalTimer");
-
-              // Gọi trực tiếp setInterval thay vì qua callback
-              clearTimerInterval();
-
-              intervalRef.current = window.setInterval(() => {
-                setTimeRemaining((prev) => {
-                  if (prev <= 1) {
-                    if (intervalRef.current)
-                      window.clearInterval(intervalRef.current);
-                    intervalRef.current = null;
-                    setIsRunning(false);
-
-                    console.log(
-                      "⏰ Timer finished! Auto-completing session:",
-                      sessionId
-                    );
-                    completeSession(sessionId).catch(console.error);
-
-                    setActiveSessionId(null);
-                    return 0;
-                  }
-                  return prev - 1;
-                });
-              }, 1000);
-
-              setIsRunning(true);
-              console.log("✅ Timer started successfully");
-            } catch (err) {
-              console.error("❌ Failed to auto-start:", err);
-            }
-          }, 100);
+        if (autoStart) {
+          // resume on backend then start local timer
+          try {
+            await pomodoroResume(sessionId);
+            clearSessionInterval();
+            startSessionTimer(sessionId);
+          } catch (err) {
+            console.error("switchToSession autoStart error:", err);
+          }
         }
-
-        console.log("✅ Switched to session successfully");
       } catch (err) {
-        console.error("❌ Failed to switch session:", err);
+        console.error("switchToSession error:", err);
       }
     },
     [
       activeSessionId,
       isRunning,
-      pauseTimer,
+      isBreakTime,
       sessions,
-      clearTimerInterval,
-      completeSession,
+      pauseTimer,
+      clearSessionInterval,
+      startSessionTimer,
     ]
   );
 
-  // ==================== SESSION MANAGEMENT ====================
-  // Fetch history and restore active session
+  // ------------------- fetchHistory -------------------
   const fetchHistory = useCallback(async () => {
     try {
-      console.log("🔄 Fetching history...");
       const mapped = await pomodoroHistory();
-      setSessions(mapped);
+      // Normalize incoming sessions: ensure startedAt/completedAt are Date and timeRemaining in seconds
+      const normalized: Session[] = (mapped || []).map((s: any) => ({
+        id: s.id,
+        taskName: s.taskName,
+        duration: s.duration,
+        status: s.status,
+        startedAt: s.startedAt ? new Date(s.startedAt) : new Date(),
+        completedAt: s.completedAt ? new Date(s.completedAt) : undefined,
+        timeRemaining:
+          s.timeRemaining !== undefined ? s.timeRemaining : s.duration * 60,
+      }));
 
-      // Find running session and restore timer
-      const runningSession = mapped.find(
-        (s) =>
-          s.status === "running" &&
-          s.timeRemaining !== undefined &&
-          s.timeRemaining > 0
+      setSessions(normalized);
+
+      // restore running session if any
+      const running = normalized.find(
+        (s) => s.status === "running" && (s.timeRemaining ?? 0) > 0
       );
-
-      if (runningSession) {
-        console.log("🔄 Restoring active session:", runningSession);
-        setActiveSessionId(runningSession.id);
-        setTimeRemaining(runningSession.timeRemaining ?? 0);
-        setIsRunning(false);
+      if (running) {
+        setActiveSessionId(running.id);
+        setSessionTimeRemaining(running.timeRemaining ?? running.duration * 60);
+        setIsRunning(false); // don't automatically start until user resumes
       }
     } catch (err) {
       console.error("fetchHistory error:", err);
     }
   }, []);
 
-  // Start a new session
-  const startSession = useCallback(
-    async (sessionFromUI: Session) => {
+  // ------------------- cleanupActiveSession -------------------
+  const cleanupActiveSession = useCallback(async () => {
+    // Called on unmount or when needed: ensure backend pause if session running
+    if (activeSessionId && isRunning && !isBreakTime) {
       try {
-        const duration = sessionFromUI.duration ?? DEFAULT_POMODORO_MIN;
-        console.log("🎯 Starting session with - FE:", {
-          taskName: sessionFromUI.taskName,
-          duration,
-        });
-
-        const newSession = await pomodoroStart(
-          sessionFromUI.taskName,
-          duration
-        );
-        console.log("📥 Received session:", newSession);
-
-        setSessions((prev) => [...prev, newSession]);
-        setActiveSessionId(newSession.id);
-        setTimeRemaining(newSession.duration * 60);
+        clearSessionInterval();
         setIsRunning(false);
-
-        console.log("⏱️ Timer set to:", newSession.duration * 60, "seconds");
+        // call pause API to persist remaining time
+        await pomodoroPause(activeSessionId);
       } catch (err) {
-        console.error("startSession error:", err);
-        throw err;
+        console.warn("cleanupActiveSession warning:", err);
       }
-    },
-    [DEFAULT_POMODORO_MIN]
-  );
+    } else {
+      // if break running, just clear
+      if (isBreakTime) {
+        clearBreakInterval();
+        setIsRunning(false);
+      }
+    }
+  }, [activeSessionId, isRunning, isBreakTime]);
 
-  // Start task from dashboard
-  const startTask = useCallback(
-    async (task: Task) => {
-      const duration =
-        task.duration ||
-        (task.dueDate
-          ? Math.max(
-              Math.ceil(
-                (new Date(task.dueDate).getTime() - Date.now()) / 60000
-              ),
-              1
-            )
-          : DEFAULT_POMODORO_MIN);
+  // ------------------- skipBreak -------------------
+  const skipBreak = useCallback(() => {
+    // cancel break and go to next session
+    clearBreakInterval();
+    setIsBreakTime(false);
+    setIsRunning(false);
+    setBreakTimeRemaining(0);
+    // start next pending session
+    setTimeout(() => startNextSession(), 200);
+  }, [startNextSession]);
 
-      const newSession: Session = {
-        id: crypto.randomUUID(),
-        taskName: task.title,
-        duration,
-        startedAt: new Date(),
-        status: "running",
-      };
-
-      removeTask(task._id);
-      await startSession(newSession);
-    },
-    [removeTask, startSession, DEFAULT_POMODORO_MIN]
-  );
-
-  // Get total completed time
+  // ------------------- getTotalTime -------------------
   const getTotalTime = useCallback(
     () =>
       sessions
@@ -430,88 +566,97 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     [sessions]
   );
 
-  // ==================== EFFECTS ====================
-
-  // Auto-pause on page unload
+  // ------------------- effects: beforeunload and unmount cleanup -------------------
   useEffect(() => {
+    // when user closes tab, try to pause active session if running
     const handleBeforeUnload = () => {
-      if (activeSessionId && isRunning) {
+      if (activeSessionId && isRunning && !isBreakTime) {
         const token = localStorage.getItem("token");
-        if (token) {
-          const apiUrl =
-            process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-
-          // ✅ Silent fail với keepalive request
-          fetch(`${apiUrl}/api/pomodoro/pause`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ sessionId: activeSessionId }),
-            keepalive: true,
-          }).catch(() => {
-            // ✅ Bỏ qua lỗi - không quan trọng khi unload
-          });
-        }
+        if (!token) return;
+        const apiUrl =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+        // fire-and-forget pause
+        navigator.sendBeacon?.(
+          `${apiUrl}/api/pomodoro/pause`,
+          JSON.stringify({ sessionId: activeSessionId })
+        );
       }
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
-
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [activeSessionId, isRunning]);
+  }, [activeSessionId, isRunning, isBreakTime]);
 
-  // ❌ REMOVED: Auto-sync timer với backend mỗi 10s
-  // Đoạn này gây conflict với countdown local
-
-  // Cleanup on unmount
   useEffect(() => {
+    // cleanup intervals on unmount
     return () => {
-      if (intervalRef.current) {
-        window.clearInterval(intervalRef.current);
-      }
-      cleanupActiveSession();
+      clearSessionInterval();
+      clearBreakInterval();
+      // best-effort persist active session
+      (async () => {
+        if (activeSessionId && isRunning && !isBreakTime) {
+          try {
+            await pomodoroPause(activeSessionId);
+          } catch (err) {
+            // ignore
+          }
+        }
+      })();
     };
-  }, [cleanupActiveSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty deps for unmount only
 
-  // ==================== PROVIDER ====================
-  return (
-    <AppContext.Provider
-      value={{
-        tasks,
-        setTasks,
-        addTask,
-        updateTask,
-        removeTask,
-        startTask,
-        sessions,
-        setSessions,
-        fetchHistory,
-        startSession,
-        completeSession,
-        activeSessionId,
-        timeRemaining,
-        isRunning,
-        pauseTimer,
-        resumeTimer,
-        startCountdown,
-        getTotalTime,
-        cleanupActiveSession,
-        switchToSession,
-      }}
-    >
-      {children}
-    </AppContext.Provider>
-  );
+  // ------------------- Expose context -------------------
+  const value: AppContextType = {
+    // tasks
+    tasks,
+    setTasks,
+    addTask,
+    updateTask,
+    removeTask,
+    startTask,
+
+    // sessions
+    sessions,
+    setSessions,
+    fetchHistory,
+    startSession,
+    completeSession,
+
+    // active/timers
+    activeSessionId,
+    sessionTimeRemaining,
+    breakTimeRemaining,
+    timeRemaining, // convenience alias
+
+    isRunning,
+    pauseTimer,
+    resumeTimer,
+    startCountdown,
+
+    getTotalTime,
+    cleanupActiveSession,
+    switchToSession,
+
+    // break
+    isBreakTime,
+    breakDuration,
+    completedSessionsCount,
+    shortBreakMinutes,
+    longBreakMinutes,
+    setShortBreakMinutes,
+    setLongBreakMinutes,
+    skipBreak,
+  };
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
+// Hook
 export const useAppContext = () => {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error("useAppContext must be used within AppProvider");
-  }
-  return context;
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error("useAppContext must be used within AppProvider");
+  return ctx;
 };
