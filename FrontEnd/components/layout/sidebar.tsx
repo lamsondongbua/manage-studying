@@ -21,7 +21,6 @@ export default function Sidebar({
   const [isOpen, setIsOpen] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // ✅ Lấy context để pause session
   const { cleanupActiveSession, isRunning, activeSessionId } = useAppContext();
 
   const menuItems = [
@@ -32,12 +31,10 @@ export default function Sidebar({
     { id: "admin", label: "Admin", icon: "🔧" },
   ];
 
-  // ✅ Handler đăng xuất với auto-pause
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
 
-      // Hiển thị confirmation nếu đang chạy timer
       if (isRunning && activeSessionId) {
         const confirmed = window.confirm(
           "Bạn đang có session đang chạy. Session sẽ được tạm dừng khi đăng xuất. Tiếp tục?"
@@ -48,19 +45,16 @@ export default function Sidebar({
           return;
         }
 
-        // Pause session trước khi logout
         console.log("⏸️ Pausing active session before logout...");
         await cleanupActiveSession();
       }
 
-      // Gọi onLogout callback từ props
       onLogout();
 
       console.log("✅ Logged out successfully");
     } catch (err) {
       console.error("❌ Logout error:", err);
 
-      // Vẫn logout ngay cả khi pause failed
       onLogout();
     } finally {
       setIsLoggingOut(false);
@@ -117,7 +111,6 @@ export default function Sidebar({
               {user?.name || user?.email}
             </p>
 
-            {/* ✅ Status indicator khi có timer đang chạy */}
             {isRunning && (
               <div className="mt-2 flex items-center gap-2 px-2 py-1 bg-green-500/20 border border-green-400/30 rounded-lg">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
@@ -129,7 +122,6 @@ export default function Sidebar({
           </div>
         )}
 
-        {/* ✅ Nút đăng xuất với loading state */}
         <Button
           onClick={handleLogout}
           disabled={isLoggingOut}

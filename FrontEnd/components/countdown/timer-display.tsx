@@ -1,7 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Session } from "@/types/index";
+import {
+  Play,
+  Pause,
+  SkipForward,
+  CheckCircle,
+  Settings,
+  X,
+} from "lucide-react";
 
 interface TimerDisplayProps {
   session: Session | undefined;
@@ -11,7 +19,6 @@ interface TimerDisplayProps {
   breakTime: number;
   onStartPause: () => void;
   onComplete: () => void;
-  onSetBreakTime: (time: number) => void;
   shortBreakMinutes: number;
   longBreakMinutes: number;
   onSetShortBreak: (minutes: number) => void;
@@ -28,7 +35,6 @@ export default function TimerDisplay({
   breakTime,
   onStartPause,
   onComplete,
-  onSetBreakTime,
   shortBreakMinutes,
   longBreakMinutes,
   onSetShortBreak,
@@ -36,246 +42,216 @@ export default function TimerDisplay({
   onSkipBreak,
   completedSessionsCount,
 }: TimerDisplayProps) {
-  const [showBreakSettings, setShowBreakSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+
+  const [localShortBreak, setLocalShortBreak] = useState(shortBreakMinutes);
+  const [localLongBreak, setLocalLongBreak] = useState(longBreakMinutes);
+
+  useEffect(() => {
+    setLocalShortBreak(shortBreakMinutes);
+    setLocalLongBreak(longBreakMinutes);
+  }, [shortBreakMinutes, longBreakMinutes]);
+
+  const handleSaveSettings = () => {
+    onSetShortBreak(localShortBreak);
+    onSetLongBreak(localLongBreak);
+    setShowSettings(false);
+  };
 
   const formatTime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
+    const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    if (h > 0)
-      return `${h.toString().padStart(2, "0")}:${m
-        .toString()
-        .padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const displayTime = () => {
-    return formatTime(timeRemaining);
-  };
+  const totalDuration = isBreak
+    ? breakTime * 60
+    : (session?.duration ?? 25) * 60;
 
-  const calculateProgress = () => {
-    if (isBreak) {
-      const totalSeconds = breakTime * 60;
-      const elapsed = totalSeconds - timeRemaining;
-      return Math.min(Math.max((elapsed / totalSeconds) * 100, 0), 100);
-    }
+  const safeTotal = totalDuration > 0 ? totalDuration : 1;
+  const progress = ((safeTotal - timeRemaining) / safeTotal) * 100;
+  const circumference = 283; // 2 * PI * 45
+  const strokeDashoffset = circumference - (circumference * progress) / 100;
 
-    if (!session) return 0;
-    const totalSeconds = (session.duration ?? 0) * 60;
-    const elapsed = totalSeconds - timeRemaining;
-    return Math.min(Math.max((elapsed / totalSeconds) * 100, 0), 100);
-  };
+  const isLongBreakNext = (completedSessionsCount + 1) % 4 === 0;
 
-  const formatDuration = (minutes: number) => {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    if (h > 0) return `${h}h ${m > 0 ? m + "m" : ""}`;
-    return `${m}m`;
-  };
-
-  // ✅ Xác định loại break hiện tại
-  const isLongBreak =
-    completedSessionsCount % 3 === 0 && completedSessionsCount > 0;
+  const currentBreakType = isBreak
+    ? breakTime >= longBreakMinutes
+      ? "Long Break"
+      : "Short Break"
+    : null;
 
   return (
-    <div
-      className={`${isRunning ? "animate-pulse-glow" : ""} bg-gradient-to-br ${
-        isBreak
-          ? "from-emerald-500 via-teal-500 to-cyan-600 dark:from-emerald-700 dark:via-teal-700 dark:to-cyan-800"
-          : "from-purple-500 via-indigo-500 to-blue-600 dark:from-purple-700 dark:via-indigo-700 dark:to-blue-800"
-      } rounded-3xl p-12 text-white shadow-lg-soft backdrop-blur-sm animate-scale-in border border-white/20 transition-all duration-500`}
-    >
-      <div className="text-center mb-10 animate-fade-in">
-        <p className="text-purple-100 text-xs uppercase tracking-widest mb-3 font-semibold animate-slide-in-left">
-          {isBreak
-            ? isLongBreak
-              ? "☕ Long Break Time"
-              : "☕ Short Break Time"
-            : "📚 Current Task"}
-        </p>
-        <h2 className="text-4xl font-bold animate-slide-in-right text-white drop-shadow-lg">
-          {isBreak
-            ? isLongBreak
-              ? `Long Break (${longBreakMinutes}m)`
-              : `Short Break (${shortBreakMinutes}m)`
-            : session?.taskName || "Select a task"}
-        </h2>
-        {!isBreak && session && (
-          <p className="text-purple-200 text-sm mt-2 font-medium">
-            Duration: {formatDuration(session.duration ?? 0)}
-            {session.status === "completed" && " • ✓ Completed"}
-          </p>
-        )}
-        {isBreak && (
-          <p className="text-emerald-100 text-sm mt-2 font-medium">
-            🎉 Completed: {completedSessionsCount} session
-            {completedSessionsCount !== 1 ? "s" : ""}
-          </p>
-        )}
-      </div>
-
-      <div className="text-center mb-14 animate-bounce-in">
-        <div
-          className={`text-9xl font-bold font-mono tracking-tighter mb-6 ${
-            isRunning ? "animate-pulse" : ""
-          } drop-shadow-lg`}
-        >
-          {displayTime()}
-        </div>
-
-        {/* Progress bar */}
-        <div className="h-2 w-40 bg-white/30 mx-auto rounded-full overflow-hidden backdrop-blur-sm border border-white/20">
-          <div
-            className={`h-full transition-all duration-500 ${
-              isBreak
-                ? "bg-gradient-to-r from-emerald-300 to-teal-300"
-                : "bg-gradient-to-r from-cyan-300 to-emerald-300"
-            }`}
-            style={{
-              width: `${calculateProgress()}%`,
-            }}
-          ></div>
-        </div>
-
-        {/* Status text */}
-        <div className="mt-4 text-sm text-purple-200">
-          {isBreak ? (
-            isRunning ? (
-              <p>Đang nghỉ ngơi... Còn lại: {formatTime(timeRemaining)}</p>
-            ) : (
-              <p>Nhấn Start để bắt đầu nghỉ ngơi</p>
-            )
-          ) : (
-            <>
-              {isRunning ? (
-                <p>Còn lại: {formatTime(timeRemaining)}</p>
-              ) : session?.status === "completed" ? (
-                <p>Đã hoàn thành</p>
-              ) : timeRemaining > 0 ? (
-                <p>Tạm dừng - Còn lại: {formatTime(timeRemaining)}</p>
-              ) : (
-                <p>Nhấn Start để bắt đầu</p>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      <div
-        className="flex gap-4 justify-center mb-8 animate-slide-up flex-wrap"
-        style={{ animationDelay: "0.2s" }}
+    <div className="relative w-full max-w-md mx-auto aspect-square bg-white dark:bg-slate-900 rounded-full shadow-2xl flex flex-col items-center justify-center p-8 border-4 border-slate-100 dark:border-slate-800">
+      <svg
+        className="absolute w-full h-full transform -rotate-90 pointer-events-none"
+        viewBox="0 0 100 100"
       >
-        {isBreak ? (
-          <>
-            <button
-              onClick={onStartPause}
-              className="px-8 py-3 bg-white/20 hover:bg-white/30 rounded-xl font-bold text-lg transition-all border border-white/40 flex items-center gap-2 hover:shadow-lg hover:shadow-white/20 active:scale-95 duration-300 backdrop-blur-md"
-            >
-              {isRunning ? "⏸️ Pause" : "▶️ Start Break"}
-            </button>
-            <button
-              onClick={onSkipBreak}
-              className="px-8 py-3 bg-white/20 hover:bg-white/30 rounded-xl font-bold text-lg transition-all border border-white/40 hover:shadow-lg hover:shadow-white/20 active:scale-95 duration-300 backdrop-blur-md"
-            >
-              ⏭️ Skip Break
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={onStartPause}
-              disabled={!session || session.status === "completed"}
-              className={`px-8 py-3 bg-white/20 hover:bg-white/30 rounded-xl font-bold text-lg transition-all border border-white/40 flex items-center gap-2 hover:shadow-lg hover:shadow-white/20 active:scale-95 duration-300 backdrop-blur-md ${
-                !session || session.status === "completed"
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }`}
-            >
-              {isRunning ? "⏸️ Pause" : "▶️ Start"}
-            </button>
-            <button
-              onClick={onComplete}
-              disabled={!session || session.status === "completed"}
-              className={`px-8 py-3 bg-white/20 hover:bg-white/30 rounded-xl font-bold text-lg transition-all border border-white/40 hover:shadow-lg hover:shadow-white/20 active:scale-95 duration-300 backdrop-blur-md ${
-                !session || session.status === "completed"
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }`}
-            >
-              ✓ Complete
-            </button>
-          </>
-        )}
-        <button
-          onClick={() => setShowBreakSettings(!showBreakSettings)}
-          className="px-8 py-3 bg-white/20 hover:bg-white/30 rounded-xl font-bold text-lg transition-all border border-white/40 hover:shadow-lg hover:shadow-white/20 active:scale-95 duration-300 backdrop-blur-md"
-        >
-          ⚙️ Settings
-        </button>
-      </div>
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          stroke="currentColor"
+          strokeWidth="3"
+          className="text-slate-200 dark:text-slate-800"
+          fill="none"
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          stroke="currentColor"
+          strokeWidth="3"
+          className={`${
+            isBreak ? "text-emerald-500" : "text-indigo-600"
+          } transition-all duration-1000 ease-linear`}
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+        />
+      </svg>
 
-      {showBreakSettings && (
-        <div className="bg-white/15 backdrop-blur-lg rounded-2xl p-6 mb-6 border border-white/30 animate-slide-up shadow-lg">
-          <h3 className="font-bold mb-5 text-lg text-white">Cấu hình Break</h3>
-          <div className="grid grid-cols-2 gap-4">
+      {showSettings && (
+        <div className="absolute inset-0 z-20 bg-white/98 dark:bg-slate-900/98 rounded-full flex flex-col items-center justify-center p-6 backdrop-blur-sm animate-in fade-in duration-200">
+          <button
+            onClick={() => setShowSettings(false)}
+            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            <X size={20} />
+          </button>
+
+          <h3 className="text-lg font-bold mb-6 text-slate-700 dark:text-slate-200">
+            Break Settings
+          </h3>
+
+          <div className="space-y-4 w-full max-w-[220px]">
             <div>
-              <label className="block text-sm mb-2 font-semibold">
-                Short Break (phút)
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                Short Break (minutes)
               </label>
               <input
                 type="number"
                 min="1"
                 max="30"
-                value={shortBreakMinutes || 5}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  onSetShortBreak(isNaN(val) ? 5 : val);
-                }}
-                className="w-full px-3 py-2 bg-white/20 rounded-lg border border-white/40 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-300 focus:outline-none transition-all backdrop-blur-sm"
+                value={localShortBreak}
+                onChange={(e) =>
+                  setLocalShortBreak(Math.max(1, Number(e.target.value)))
+                }
+                className="w-full p-3 border rounded-lg text-center dark:bg-slate-800 dark:border-slate-700 font-medium"
               />
             </div>
+
             <div>
-              <label className="block text-sm mb-2 font-semibold">
-                Long Break (phút)
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                Long Break (minutes)
               </label>
               <input
                 type="number"
                 min="1"
                 max="60"
-                value={longBreakMinutes || 15}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  onSetLongBreak(isNaN(val) ? 15 : val);
-                }}
-                className="w-full px-3 py-2 bg-white/20 rounded-lg border border-white/40 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-300 focus:outline-none transition-all backdrop-blur-sm"
+                value={localLongBreak}
+                onChange={(e) =>
+                  setLocalLongBreak(Math.max(1, Number(e.target.value)))
+                }
+                className="w-full p-3 border rounded-lg text-center dark:bg-slate-800 dark:border-slate-700 font-medium"
               />
             </div>
           </div>
-          <p className="text-xs text-white/70 mt-4">
-            💡 Short break sau mỗi session • Long break sau mỗi 3 sessions
-          </p>
+
+          <button
+            onClick={handleSaveSettings}
+            className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold shadow-md transition-colors"
+          >
+            Save Settings
+          </button>
         </div>
       )}
 
-      <div
-        className="bg-white/15 backdrop-blur-md rounded-2xl p-5 text-center text-sm animate-slide-up border border-white/30 shadow-lg"
-        style={{ animationDelay: "0.3s" }}
-      >
-        {isBreak ? (
-          <p className="font-medium">
-            Thời gian nghỉ ngơi - Bạn đã làm việc tuyệt vời! 🎉
+      <div className="z-10 text-center flex flex-col items-center">
+        <div
+          className={`mb-4 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${
+            isBreak
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+              : "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
+          }`}
+        >
+          {isBreak ? currentBreakType : session?.taskName || "Focus Time"}
+        </div>
+
+        <div className="text-7xl font-bold tracking-tighter text-slate-800 dark:text-white font-mono mb-2">
+          {formatTime(timeRemaining)}
+        </div>
+
+        {!isBreak && session && (
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+            Session #{completedSessionsCount + 1}
           </p>
-        ) : session ? (
-          <p>
-            Tập trung vào:{" "}
-            <strong className="text-cyan-200">{session.taskName}</strong>
-            {" • "}
-            <span className="text-purple-200">
-              {formatDuration(session.duration ?? 0)}
-            </span>
+        )}
+        {isBreak && (
+          <div className="mb-6">
+            <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+              Relax & Recharge ☕
+            </p>
+            {!isRunning && (
+              <p className="text-xs text-slate-400 mt-1">
+                Press play to start break
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="p-3 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title="Timer Settings"
+          >
+            <Settings size={22} />
+          </button>
+
+          <button
+            onClick={onStartPause}
+            className={`w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg transform transition-all hover:scale-105 active:scale-95 ${
+              isRunning
+                ? "bg-amber-500 hover:bg-amber-600"
+                : "bg-indigo-600 hover:bg-indigo-700"
+            }`}
+            title={isRunning ? "Pause" : "Start"}
+          >
+            {isRunning ? (
+              <Pause fill="white" size={24} />
+            ) : (
+              <Play fill="white" className="ml-1" size={24} />
+            )}
+          </button>
+
+          {isBreak ? (
+            <button
+              onClick={onSkipBreak}
+              className="p-3 rounded-full text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+              title="Skip Break"
+            >
+              <SkipForward size={22} />
+            </button>
+          ) : (
+            <button
+              onClick={onComplete}
+              className="p-3 rounded-full text-slate-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors"
+              title="Complete Session Early"
+            >
+              <CheckCircle size={22} />
+            </button>
+          )}
+        </div>
+
+        {!isBreak && (
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-4">
+            Next break:{" "}
+            {isLongBreakNext
+              ? `${longBreakMinutes}m (Long)`
+              : `${shortBreakMinutes}m (Short)`}
           </p>
-        ) : (
-          <p>Chọn một phiên học để bắt đầu</p>
         )}
       </div>
     </div>

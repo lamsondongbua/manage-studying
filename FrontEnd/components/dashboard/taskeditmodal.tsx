@@ -14,7 +14,6 @@ interface TaskEditModalProps {
   }) => Promise<void>;
 }
 
-// Hàm format ISO Date sang "YYYY-MM-DDTHH:mm" cho input datetime-local
 function formatDateForInput(date?: string) {
   if (!date) return "";
   const d = new Date(date);
@@ -36,7 +35,6 @@ export default function TaskEditModal({
   const [dueDate, setDueDate] = useState(formatDateForInput(task.dueDate));
   const [error, setError] = useState("");
 
-  // Cập nhật state mỗi khi task thay đổi
   useEffect(() => {
     setTitle(task.title);
     setDescription(task.description || "");
@@ -52,7 +50,6 @@ export default function TaskEditModal({
     setError("");
 
     try {
-      // Convert về ISO trước khi gửi lên backend
       await onSubmit({
         id: task._id,
         title,

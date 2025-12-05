@@ -13,11 +13,12 @@ export default function TotalTimePage() {
     const total = completed.reduce((sum, s) => sum + s.duration * 60, 0);
     setTotalSeconds(total);
 
-    // Calculate today's time
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayCompleted = completed.filter(s => {
-      const completedDate = new Date(s.completedAt || s.startedAt);
+      const dateToCheck = s.completedAt || s.startedAt;
+      if (!dateToCheck) return false; 
+      const completedDate = new Date(dateToCheck);
       completedDate.setHours(0, 0, 0, 0);
       return completedDate.getTime() === today.getTime();
     });
@@ -46,7 +47,6 @@ export default function TotalTimePage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          {/* Today's Total */}
           <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-8 text-white shadow-xl">
             <p className="text-amber-100 text-sm uppercase tracking-widest mb-2">Hôm nay</p>
             <div className="text-6xl font-bold font-mono mb-2">
@@ -55,7 +55,6 @@ export default function TotalTimePage() {
             <p className="text-amber-100">Thời gian học từ khi mở ứng dụng</p>
           </div>
 
-          {/* Total Time */}
           <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-8 text-white shadow-xl">
             <p className="text-indigo-100 text-sm uppercase tracking-widest mb-2">Tổng cộng</p>
             <div className="text-6xl font-bold font-mono mb-2">
@@ -65,7 +64,6 @@ export default function TotalTimePage() {
           </div>
         </div>
 
-        {/* Notifications Info */}
         <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">💡 Mẹo tối ưu hóa</h2>
           <ul className="space-y-3 text-gray-700">

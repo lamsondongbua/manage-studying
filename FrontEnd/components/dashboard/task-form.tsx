@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAppContext } from "@/contexts/app-context";
-import { postTask } from "../../services/apiServices"; // 🔥 import API
+import { postTask } from "../../services/apiServices"; 
 import { toast } from "react-toastify";
 
 interface TaskFormProps {
@@ -14,7 +14,7 @@ export default function TaskForm({ onClose }: TaskFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [hours, setHours] = useState("0");
-  const [minutes, setMinutes] = useState("25"); // mặc định Pomodoro
+  const [minutes, setMinutes] = useState("25");
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,13 +29,12 @@ export default function TaskForm({ onClose }: TaskFormProps) {
     const h = parseInt(hours) || 0;
     const m = parseInt(minutes) || 0;
     const totalMinutes = h * 60 + m;
-    console.log("📝 Creating task with duration:", totalMinutes); // ✅ Debug
+    console.log("📝 Creating task with duration:", totalMinutes); 
     if (totalMinutes <= 0) {
       setError("Thời gian phải lớn hơn 0");
       return;
     }
 
-    // 🔥 Tạo task với duration
     const dueDate = new Date(Date.now() + totalMinutes * 60 * 1000);
 
     try {
@@ -45,7 +44,6 @@ export default function TaskForm({ onClose }: TaskFormProps) {
         dueDate,
         totalMinutes
       );
-      // lưu duration luôn
       const taskWithDuration = { ...createdTask, duration: totalMinutes };
       console.log("✅ Task created:", taskWithDuration); // ✅ Debug
 

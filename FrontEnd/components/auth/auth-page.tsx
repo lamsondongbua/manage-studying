@@ -11,12 +11,10 @@ interface AuthPageProps {
 export default function AuthPage({ setUser }: AuthPageProps) {
   const [isLogin, setIsLogin] = useState(true);
 
-  // ✅ Callback cho LOGIN - lưu user và chuyển vào app
   const handleAuth = (userData: any) => {
     setUser(userData);
   };
 
-  // ✅ Callback cho REGISTER - chỉ chuyển sang form login
   const handleSwitchToLogin = () => {
     setIsLogin(true);
   };

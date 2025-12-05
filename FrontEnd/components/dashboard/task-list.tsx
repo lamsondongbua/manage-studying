@@ -35,7 +35,6 @@ export default function TaskList({
           style={{ animationDelay: `${index * 50}ms` }}
         >
           <div className="flex items-center justify-between">
-            {/* TITLE + DESCRIPTION */}
             <div className="flex-1 min-w-0">
               <h3 className="text-xl font-bold text-gray-800 dark:text-white truncate">
                 {task.title}
@@ -52,7 +51,6 @@ export default function TaskList({
               )}
             </div>
 
-            {/* ACTION BUTTONS */}
             <div className="flex gap-2 ml-4 flex-shrink-0">
               <button
                 onClick={() => onEditTask(task)}

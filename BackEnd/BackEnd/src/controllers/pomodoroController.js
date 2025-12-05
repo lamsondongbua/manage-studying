@@ -1,48 +1,22 @@
 const Pomodoro = require("../models/PomodoroSession");
-const StudyLog = require("../models/StudyLog");
-
 exports.start = async (req, res) => {
   try {
     const { taskName, duration } = req.body;
-
-    console.log("📥 Request received:", {
-      taskName,
-      duration,
-      type: typeof duration,
-    });
-
-    // Parse và validate duration
-    let durationMinutes = 25; // default
-
-    if (duration !== undefined && duration !== null) {
-      const parsed = parseInt(duration, 10);
-      if (!isNaN(parsed) && parsed > 0) {
-        durationMinutes = parsed;
-      }
-    }
-
-    console.log("✅ Using duration:", durationMinutes);
+    const durationMinutes = parseInt(duration) > 0 ? parseInt(duration) : 25;
 
     const session = new Pomodoro({
       user: req.user._id,
       taskName: taskName || "Pomodoro Session",
       startTime: new Date(),
-      durationMinutes: durationMinutes,
+      durationMinutes,
       totalPausedTime: 0,
       pausedAt: null,
     });
 
     await session.save();
 
-    // ✅ Trả về session với timeRemaining ban đầu
     const response = session.toObject();
     response.timeRemaining = session.getTimeRemaining();
-
-    console.log("✅ Session created:", {
-      _id: response._id,
-      durationMinutes: response.durationMinutes,
-      timeRemaining: response.timeRemaining,
-    });
 
     res.json(response);
   } catch (err) {
@@ -59,11 +33,8 @@ exports.stop = async (req, res) => {
       user: req.user._id,
     });
 
-    if (!session) {
-      return res.status(404).json({ msg: "Session not found" });
-    }
+    if (!session) return res.status(404).json({ msg: "Session not found" });
 
-    // ✅ Nếu đang pause, cộng thêm thời gian pause cuối cùng
     if (session.pausedAt) {
       const pausedDuration = (new Date() - new Date(session.pausedAt)) / 1000;
       session.totalPausedTime += Math.floor(pausedDuration);
@@ -74,38 +45,19 @@ exports.stop = async (req, res) => {
     session.isCompleted = true;
     await session.save();
 
-    // ✅ Tính actual time để lưu study log
-    const diffMs = session.endTime - new Date(session.startTime);
-    const totalSeconds = Math.floor(diffMs / 1000);
-    const activeSeconds = totalSeconds - session.totalPausedTime;
-    const actualMinutes = Math.max(1, Math.round(activeSeconds / 60));
-
-    console.log("⏹️ Session completed:", {
-      sessionId,
-      durationMinutes: session.durationMinutes,
-      actualMinutes,
-      totalPausedTime: session.totalPausedTime,
-    });
-
-    // Update StudyLog
-    const day = new Date(session.startTime);
-    day.setHours(0, 0, 0, 0);
-
-    const log = await StudyLog.findOneAndUpdate(
-      { user: req.user._id, date: day },
-      { $inc: { totalMinutes: actualMinutes } },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
     const response = session.toObject();
-    response.timeRemaining = 0; // ✅ Completed = 0
+    response.timeRemaining = 0;
 
-    res.json({ session: response, log });
+    res.json({ session: response });
   } catch (err) {
     console.error("❌ Error stopping pomodoro:", err);
     res.status(500).json({ error: "Server error", details: err.message });
   }
 };
+
+
+
+
 
 // ✅ Pause - Chỉ lưu timestamp
 exports.pause = async (req, res) => {

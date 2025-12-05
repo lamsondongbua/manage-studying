@@ -1,161 +1,322 @@
-'use client';
+"use client";
 
-import { useAppContext } from '@/contexts/app-context';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { useEffect, useState } from "react";
+import { pomodoroHistory } from "../../services/apiServices";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import { formatDateVN, formatDateVNISO } from "../../util/date";
+
+interface StudyStat {
+  [key: string]: string | number;
+  name: string;
+  hours: number;
+  minutes: number;
+}
 
 export default function StatsPage() {
-  const { sessions } = useAppContext();
-  const completedSessions = sessions.filter(s => s.status === 'completed');
+  const [dailyData, setDailyData] = useState<StudyStat[]>([]);
+  const [weeklyData, setWeeklyData] = useState<StudyStat[]>([]);
+  const [monthlyData, setMonthlyData] = useState<StudyStat[]>([]);
+  const [taskStats, setTaskStats] = useState<StudyStat[]>([]);
+  const [showMinutes, setShowMinutes] = useState(false);
+  const [totalStudyTime, setTotalStudyTime] = useState(0);
 
-  // Calculate statistics
-  const dailyStats = {} as Record<string, number>;
-  const weeklyStats = {} as Record<string, number>;
-  const monthlyStats = {} as Record<string, number>;
+  const COLORS = ["#4f46e5", "#7c3aed", "#db2777", "#ea580c", "#ca8a04"];
 
-  completedSessions.forEach(session => {
-    const date = new Date(session.completedAt || session.startedAt);
-    const dayKey = date.toLocaleDateString('vi-VN');
-    const weekKey = `Week ${Math.ceil(date.getDate() / 7)}`;
-    const monthKey = date.toLocaleString('vi-VN', { month: 'long', year: 'numeric' });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const sessions = await pomodoroHistory();
+        const now = new Date();
+        const todayVNStr = formatDateVNISO(now);
 
-    dailyStats[dayKey] = (dailyStats[dayKey] || 0) + session.duration;
-    weeklyStats[weekKey] = (weeklyStats[weekKey] || 0) + session.duration;
-    monthlyStats[monthKey] = (monthlyStats[monthKey] || 0) + session.duration;
-  });
+        const todaySessions = sessions.filter(
+          (s) => s.completedAt && formatDateVNISO(s.completedAt) === todayVNStr
+        );
+        const totalMinutesToday = todaySessions.reduce(
+          (sum, s) => sum + s.duration,
+          0
+        );
+        setDailyData([
+          {
+            name: formatDateVN(todayVNStr),
+            hours: totalMinutesToday / 60,
+            minutes: totalMinutesToday,
+          },
+        ]);
 
-  const dailyData = Object.entries(dailyStats).map(([date, minutes]) => ({
-    name: date,
-    hours: parseFloat((minutes / 60).toFixed(2)),
-  }));
+        const taskMap: { [key: string]: number } = {};
+        todaySessions.forEach((s) => {
+          taskMap[s.taskName] = (taskMap[s.taskName] || 0) + s.duration;
+        });
 
-  const weeklyData = Object.entries(weeklyStats).map(([week, minutes]) => ({
-    name: week,
-    hours: parseFloat((minutes / 60).toFixed(2)),
-  }));
+        const mappedTasks: StudyStat[] = Object.entries(taskMap).map(
+          ([name, minutes]) => ({
+            name,
+            hours: minutes / 60,
+            minutes,
+          })
+        );
 
-  const monthlyData = Object.entries(monthlyStats).map(([month, minutes]) => ({
-    name: month,
-    hours: parseFloat((minutes / 60).toFixed(2)),
-  }));
+        mappedTasks.sort((a, b) => b.minutes - a.minutes);
 
-  const taskStats = Object.entries(
-    completedSessions.reduce((acc, s) => {
-      acc[s.taskName] = (acc[s.taskName] || 0) + s.duration;
-      return acc;
-    }, {} as Record<string, number>)
-  ).map(([task, minutes]) => ({
-    name: task,
-    value: parseFloat((minutes / 60).toFixed(2)),
-  }));
+        setTaskStats(mappedTasks);
 
-  const COLORS = ['#4f46e5', '#7c3aed', '#db2777', '#ea580c', '#ca8a04'];
+        const startWeek = new Date(now);
+        startWeek.setDate(now.getDate() - 6);
+        const weeklyMap: { [key: string]: number } = {};
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(startWeek);
+          d.setDate(startWeek.getDate() + i);
+          const key = formatDateVNISO(d);
+          weeklyMap[key] = 0;
+        }
+        sessions.forEach((s) => {
+          if (s.completedAt) {
+            const key = formatDateVNISO(s.completedAt);
+            if (weeklyMap[key] !== undefined) weeklyMap[key] += s.duration;
+          }
+        });
+        const mappedWeekly: StudyStat[] = Object.entries(weeklyMap).map(
+          ([date, minutes]) => ({
+            name: formatDateVN(date),
+            minutes,
+            hours: minutes / 60,
+          })
+        );
+        setWeeklyData(mappedWeekly);
 
-  const totalHours = completedSessions.reduce((total, s) => total + s.duration, 0) / 60;
+        const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthMap: { [key: string]: number } = {};
+        sessions.forEach((s) => {
+          if (s.completedAt) {
+            const d = new Date(s.completedAt);
+            if (d >= startMonth) {
+              const key = `${d.getFullYear()}-${d.getMonth()}`;
+              monthMap[key] = (monthMap[key] || 0) + s.duration;
+            }
+          }
+        });
+        const mappedMonthly: StudyStat[] = Object.entries(monthMap).map(
+          ([key, minutes]) => {
+            const [year, month] = key.split("-").map(Number);
+            return {
+              name: formatDateVN(new Date(year, month), {
+                month: "long",
+                year: "numeric",
+              }),
+              minutes,
+              hours: minutes / 60,
+            };
+          }
+        );
+        setMonthlyData(mappedMonthly);
+
+        const totalMinutes = sessions.reduce((sum, s) => sum + s.duration, 0);
+        setTotalStudyTime(totalMinutes);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const totalHours = totalStudyTime / 60;
+  const weeklyTotalMinutes = weeklyData.reduce((sum, d) => sum + d.minutes, 0);
+  const weeklyTotalHours = weeklyTotalMinutes / 60;
+  const daysWithData = weeklyData.filter((d) => d.minutes > 0).length;
+  const avgHoursPerDay = daysWithData > 0 ? weeklyTotalHours / daysWithData : 0;
+
+  const maxMinutes = taskStats.length > 0 ? taskStats[0].minutes : 0;
+  const topTasks = taskStats.filter((task) => task.minutes === maxMinutes);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
-          Thống kê
-        </h1>
-        <p className="text-gray-600">Phân tích thời gian học tập của bạn</p>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-          <p className="text-gray-600 text-sm mb-1">Tổng thời gian</p>
-          <p className="text-3xl font-bold text-indigo-600">{totalHours.toFixed(1)}h</p>
-        </div>
-        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-          <p className="text-gray-600 text-sm mb-1">Công việc hoàn thành</p>
-          <p className="text-3xl font-bold text-purple-600">{completedSessions.length}</p>
-        </div>
-        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-          <p className="text-gray-600 text-sm mb-1">Trung bình/ngày</p>
-          <p className="text-3xl font-bold text-pink-600">
-            {(totalHours / Math.max(1, dailyData.length)).toFixed(1)}h
-          </p>
-        </div>
-        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-          <p className="text-gray-600 text-sm mb-1">Công việc nhiều nhất</p>
-          <p className="text-3xl font-bold text-orange-600">{taskStats[0]?.name.split('').slice(0, 8).join('') || 'N/A'}</p>
-        </div>
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* Daily Stats */}
-        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Theo ngày</h2>
-          {dailyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dailyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="hours" fill="#4f46e5" />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-center text-gray-500 py-8">Chưa có dữ liệu</p>
-          )}
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">📊 Thống kê</h1>
+            <p className="text-gray-600 mt-2">
+              Phân tích thời gian học tập của bạn
+            </p>
+          </div>
+          <button
+            onClick={() => setShowMinutes(!showMinutes)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          >
+            {showMinutes ? "Hiển thị theo giờ" : "Hiển thị theo phút"}
+          </button>
         </div>
 
-        {/* Task Distribution */}
-        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Phân bố công việc</h2>
-          {taskStats.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={taskStats} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value">
-                  {taskStats.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-center text-gray-500 py-8">Chưa có dữ liệu</p>
-          )}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="p-6 bg-white rounded-lg shadow">
+            <p className="text-gray-600 mb-2">Tổng thời gian</p>
+            <p className="text-3xl font-bold text-indigo-600">
+              {totalHours.toFixed(3)}h
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Từ khi bắt đầu</p>
+          </div>
+
+          <div className="p-6 bg-white rounded-lg shadow">
+            <p className="text-gray-600 mb-2">Công việc hoàn thành</p>
+            <p className="text-3xl font-bold text-green-600">
+              {taskStats.length}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Hôm nay</p>
+          </div>
+
+          <div className="p-6 bg-white rounded-lg shadow">
+            <p className="text-gray-600 mb-2">Trung bình/ngày</p>
+            <p className="text-3xl font-bold text-indigo-600">
+              {avgHoursPerDay.toFixed(5)}h
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Tuần này ({daysWithData} ngày học)
+            </p>
+          </div>
+
+          <div className="p-6 bg-white rounded-lg shadow">
+            <p className="text-gray-600 mb-2">
+              {topTasks.length > 1
+                ? "Công việc nhiều nhất (ngang nhau)"
+                : "Công việc nhiều nhất"}
+            </p>
+            {topTasks.length > 0 ? (
+              <div className="space-y-1">
+                {topTasks.map((task, index) => (
+                  <div key={index}>
+                    <p
+                      className="text-lg font-bold text-purple-600 truncate"
+                      title={task.name}
+                    >
+                      {task.name}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xl font-bold text-gray-400">N/A</p>
+            )}
+          </div>
         </div>
 
-        {/* Weekly Stats */}
-        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Theo tuần</h2>
-          {weeklyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={weeklyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="hours" stroke="#7c3aed" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-center text-gray-500 py-8">Chưa có dữ liệu</p>
-          )}
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Theo ngày</h2>
+            {dailyData.length > 0 && dailyData[0].minutes > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={dailyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar
+                    dataKey={showMinutes ? "minutes" : "hours"}
+                    fill="#4f46e5"
+                    radius={[8, 8, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-400">
+                Chưa có dữ liệu hôm nay
+              </div>
+            )}
+          </div>
 
-        {/* Monthly Stats */}
-        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Theo tháng</h2>
-          {monthlyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="hours" fill="#db2777" />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-center text-gray-500 py-8">Chưa có dữ liệu</p>
-          )}
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">
+              Phân bố công việc hôm nay ({showMinutes ? "phút" : "giờ"})
+            </h2>
+            {taskStats.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={taskStats}
+                    dataKey={showMinutes ? "minutes" : "hours"}
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    label
+                  >
+                    {taskStats.map((_, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-400">
+                Chưa có dữ liệu
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Theo tuần</h2>
+            {weeklyData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={weeklyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line
+                    type="monotone"
+                    dataKey={showMinutes ? "minutes" : "hours"}
+                    stroke="#4f46e5"
+                    strokeWidth={2}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-400">
+                Chưa có dữ liệu
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Theo tháng</h2>
+            {monthlyData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line
+                    type="monotone"
+                    dataKey={showMinutes ? "minutes" : "hours"}
+                    stroke="#4f46e5"
+                    strokeWidth={2}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-400">
+                Chưa có dữ liệu
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

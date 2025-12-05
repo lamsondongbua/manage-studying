@@ -20,7 +20,6 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load from localStorage for demo
     const savedUsers = localStorage.getItem('adminUsers');
     const savedTasks = localStorage.getItem('adminTasks');
     

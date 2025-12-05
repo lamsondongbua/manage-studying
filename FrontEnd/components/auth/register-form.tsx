@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 import { postRegister } from "../../services/apiServices";
 
 interface RegisterFormProps {
-  onSwitch: () => void; // ✅ Chỉ cần onSwitch để chuyển sang login
+  onSwitch: () => void; 
 }
 
 export default function RegisterForm({ onSwitch }: RegisterFormProps) {
@@ -32,28 +32,21 @@ export default function RegisterForm({ onSwitch }: RegisterFormProps) {
       if (password.length < 6)
         throw new Error("Mật khẩu phải có ít nhất 6 ký tự");
 
-      // 🔥 Call API đăng ký
       const data = await postRegister(name, email, password);
 
       console.log("✅ Register response:", data);
 
-      // ✅ Hiển thị toast thành công
       toast.success(data.msg || "Đăng ký thành công! Vui lòng đăng nhập.", {
         position: "top-right",
         autoClose: 2000,
       });
 
-      // ✅ KHÔNG lưu user vào localStorage
-      // ✅ KHÔNG gọi onAuth
-
-      // ✅ Chờ 1.5 giây để user thấy toast, rồi chuyển sang login
       setTimeout(() => {
-        onSwitch(); // Chuyển sang form login
+        onSwitch(); 
       }, 1500);
     } catch (err: any) {
       console.error("❌ Register error:", err);
 
-      // Xử lý lỗi từ backend
       const errorMessage =
         err.response?.data?.msg || err.message || "Đăng ký thất bại";
 

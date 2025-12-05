@@ -66,7 +66,6 @@ export default function Dashboard() {
     }
   };
 
-  // ✅ LOGIC MỚI: Start Task → Chuyển thành session, KHÔNG redirect
   const handleStartTask = async (taskId: string) => {
     const task = tasks.find((t) => t._id === taskId);
     if (!task) {
@@ -77,23 +76,16 @@ export default function Dashboard() {
     console.log("🎯 Starting task:", task.title);
 
     try {
-      // 1️⃣ Gọi startTask từ context
-      // → Xóa task khỏi UI
-      // → Tạo session mới
-      // → Gọi API POST /pomodoro/start
-      // → Thêm session vào context.sessions
-      // → Bật timer
+
       await startTask(task);
 
       console.log("✅ Session created successfully");
 
-      // 2️⃣ Xóa task trên server (async, không block)
       deleteTaskByID(taskId).catch((err) => {
         console.warn("⚠️ Không thể xóa task trên server:", err);
       });
 
-      // ✅ KHÔNG REDIRECT - User tự vào /countdown-page để xem
-      // Hiển thị thông báo
+
       alert("✅ Đã tạo phiên học! Vào trang Countdown để xem timer.");
     } catch (err: any) {
       console.error("❌ Lỗi khi start task:", err);
@@ -104,7 +96,6 @@ export default function Dashboard() {
         "Không thể bắt đầu phiên học";
       alert(`Lỗi: ${errorMsg}\n\nVui lòng thử lại!`);
 
-      // Reload lại tasks để đồng bộ nếu có lỗi
       try {
         const res = await getTasks();
         setTasks(res);
@@ -116,7 +107,6 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      {/* HEADER */}
       <div className="text-center mb-12">
         <div className="mb-4">
           <h1 className="text-5xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
@@ -131,7 +121,6 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* FORM THÊM MỚI */}
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
@@ -144,7 +133,6 @@ export default function Dashboard() {
         <TaskForm onClose={() => setShowForm(false)} />
       )}
 
-      {/* TASK LIST */}
       <TaskList
         tasks={tasks}
         onStartTask={handleStartTask}
@@ -152,7 +140,6 @@ export default function Dashboard() {
         onEditTask={handleEditTask}
       />
 
-      {/* MODAL SỬA TASK */}
       {editingTask && (
         <TaskEditModal
           task={editingTask}

@@ -1,23 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useAppContext } from "@/contexts/app-context";
+import { useState, useEffect, useCallback, useRef } from "react";
 import TimerDisplay from "@/components/countdown/timer-display";
-import SessionCard from "@/components/countdown/session-card";
-import CompletedTasks from "@/components/countdown/completed-tasks";
+import { useAppContext } from "@/contexts/app-context";
+import SessionList from "@/components/countdown/session-list";
+import TotalTimeDisplay from "@/components/countdown/completed-tasks";
 
 export default function CountdownPage() {
   const {
-    sessions,
-    fetchHistory,
     activeSessionId,
-    completeSession,
+    // sessionTimeRemaining,
     timeRemaining,
     isRunning,
     pauseTimer,
     resumeTimer,
+    // startCountdown,
+    sessions,
+    fetchHistory,
+    completeSession,
     switchToSession,
-    // ✅ POMODORO CYCLE
     isBreakTime,
     breakDuration,
     completedSessionsCount,
@@ -28,163 +29,135 @@ export default function CountdownPage() {
     skipBreak,
   } = useAppContext();
 
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    null
-  );
+  const [isPausedLocal, setIsPausedLocal] = useState(!isRunning);
 
-  // Load sessions on mount
+  const hasAutoResumedRef = useRef<Set<string>>(new Set());
+  const isInitialMountRef = useRef(true);
+
   useEffect(() => {
-    fetchHistory().catch(console.error);
+    fetchHistory();
   }, [fetchHistory]);
 
-  // Auto-select active session or clear selection when break starts
   useEffect(() => {
-    if (isBreakTime) {
-      // Khi vào break, clear selected session
-      console.log("☕ Break time - clearing selection");
-      setSelectedSessionId(null);
-    } else if (activeSessionId && activeSessionId !== selectedSessionId) {
-      console.log("🔄 Auto-selecting new active session:", activeSessionId);
-      setSelectedSessionId(activeSessionId);
+    setIsPausedLocal(!isRunning);
+  }, [isRunning]);
+
+  useEffect(() => {
+    if (isBreakTime || !activeSessionId) {
+      return;
     }
-  }, [activeSessionId, selectedSessionId, isBreakTime]);
 
-  const selectedSession = sessions.find((s) => s.id === selectedSessionId);
+    if (hasAutoResumedRef.current.has(activeSessionId)) {
+      return;
+    }
 
-  // ✅ UPDATED: Hiển thị break hoặc session
-  const displayTimeRemaining = isBreakTime
-    ? timeRemaining // Nếu đang break → dùng timeRemaining từ context
-    : selectedSessionId === activeSessionId
-    ? timeRemaining
-    : selectedSession?.timeRemaining ?? (selectedSession?.duration ?? 0) * 60;
+    const activeSession = sessions.find((s) => s.id === activeSessionId);
 
-  const displayIsRunning = isRunning; // isRunning đã bao gồm cả break và session
+    if (
+      activeSession?.status === "running" &&
+      !isRunning &&
+      timeRemaining > 0
+    ) {
+      console.log("🛠️ Auto-Resume Triggered for session:", activeSessionId);
 
-  // DEBUG
-  useEffect(() => {
-    console.log("=== COUNTDOWN PAGE STATE ===");
-    console.log("Is Break Time:", isBreakTime);
-    console.log("Break Duration:", breakDuration);
-    console.log("Selected session ID:", selectedSessionId);
-    console.log("Active session ID:", activeSessionId);
-    console.log("Context timeRemaining:", timeRemaining);
-    console.log("Context isRunning:", isRunning);
-    console.log("Display timeRemaining:", displayTimeRemaining);
-    console.log("Display isRunning:", displayIsRunning);
-    console.log("Selected session:", selectedSession);
+      hasAutoResumedRef.current.add(activeSessionId);
+
+      const timeoutId = setTimeout(async () => {
+        await resumeTimer();
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
   }, [
-    isBreakTime,
-    breakDuration,
-    selectedSessionId,
     activeSessionId,
-    timeRemaining,
+    isBreakTime,
     isRunning,
-    displayTimeRemaining,
-    displayIsRunning,
-    selectedSession,
+    timeRemaining,
+    sessions,
+    resumeTimer,
   ]);
 
-  // ✅ UPDATED: Handle start/pause - hỗ trợ cả break và session
-  const handleStartPause = async () => {
-    // Nếu đang break → toggle break timer
-    if (isBreakTime) {
-      console.log("🎯 Toggle break timer");
-      if (isRunning) {
-        console.log("⏸️ Pausing break");
-        await pauseTimer();
-      } else {
-        console.log("▶️ Resuming break");
-        await resumeTimer();
+  useEffect(() => {
+    return () => {
+      if (activeSessionId) {
+        hasAutoResumedRef.current.delete(activeSessionId);
       }
-      return;
-    }
+    };
+  }, [activeSessionId]);
 
-    // Nếu là session
-    if (!selectedSessionId || !selectedSession) {
-      console.error("❌ No session selected");
-      return;
-    }
+  const handleStartPause = useCallback(async () => {
+    console.log("🎯 handleStartPause clicked, isRunning:", isRunning);
 
-    console.log("🎯 handleStartPause:", {
-      selectedSessionId,
-      activeSessionId,
-      isActive: selectedSessionId === activeSessionId,
-      isRunning,
-    });
-
-    // Nếu là active session → toggle pause/resume
-    if (selectedSessionId === activeSessionId) {
-      if (isRunning) {
-        console.log("⏸️ Pausing session");
-        await pauseTimer();
-      } else {
-        console.log("▶️ Resuming session");
-        await resumeTimer();
-      }
-    } else {
-      // Khác session → switch và auto-start
-      console.log("🔄 Switching and starting");
-      await switchToSession(selectedSessionId, true);
-    }
-  };
-
-  const handleComplete = () => {
-    if (selectedSessionId) {
-      completeSession(selectedSessionId);
-    }
-  };
-
-  const handleSelectSession = async (sessionId: string) => {
-    console.log("📌 Selecting session:", sessionId);
-
-    // Nếu đang chạy session khác, pause nó trước
-    if (
-      activeSessionId &&
-      activeSessionId !== sessionId &&
-      isRunning &&
-      !isBreakTime
-    ) {
-      console.log("⏸️ Auto-pausing current session");
+    if (isRunning) {
       await pauseTimer();
+      setIsPausedLocal(true);
+    } else {
+      if (timeRemaining > 0) {
+        await resumeTimer();
+        setIsPausedLocal(false);
+      } else {
+        console.warn("⚠️ No time remaining to resume");
+      }
     }
+  }, [isRunning, pauseTimer, resumeTimer, timeRemaining]);
 
-    setSelectedSessionId(sessionId);
+  const handleSwitchSession = useCallback(
+    async (sessionId: string) => {
+      console.log("🔄 handleSwitchSession: Switching to session:", sessionId);
 
-    // Switch context để sync timeRemaining
-    if (sessionId !== activeSessionId) {
-      await switchToSession(sessionId, false);
-    }
-  };
+      if (isBreakTime) {
+        console.log("  - Currently in break, will stop break and switch");
+      }
+
+      const targetSession = sessions.find((s) => s.id === sessionId);
+      if (!targetSession) {
+        console.warn("⚠️ Target session not found:", sessionId);
+        return;
+      }
+
+      const shouldAutoStart = targetSession.status === "running";
+
+      console.log("  - Target session:", targetSession.taskName);
+      console.log("  - Target status:", targetSession.status);
+      console.log("  - Will auto-start:", shouldAutoStart);
+
+      if (activeSessionId) {
+        hasAutoResumedRef.current.delete(activeSessionId);
+      }
+
+      await switchToSession(sessionId, shouldAutoStart);
+
+      if (shouldAutoStart) {
+        setIsPausedLocal(false);
+        hasAutoResumedRef.current.add(sessionId);
+      } else {
+        setIsPausedLocal(true);
+      }
+
+      console.log("  - ✅ Switch completed");
+    },
+    [sessions, switchToSession, activeSessionId, isBreakTime]
+  );
+
+  const activeSession = sessions.find((s) => s.id === activeSessionId);
+  const pendingSessions = sessions.filter((s) => s.status !== "completed");
+  const completedSessions = sessions.filter((s) => s.status === "completed");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50 dark:from-slate-950 dark:via-purple-950 dark:to-blue-950 p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* HEADER */}
-        <div className="mb-10 animate-fade-in">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 dark:from-purple-400 dark:via-indigo-400 dark:to-cyan-400 bg-clip-text text-transparent mb-2">
-            Countdown Timer
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 font-medium">
-            Tập trung vào công việc hiện tại và quản lý thời gian hiệu quả
-          </p>
-        </div>
-
-        {/* GRID 2/3 - 1/3 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* LEFT: Timer + Session list */}
-          <div className="lg:col-span-2">
-            {/* TIMER */}
+    <div className="flex w-full h-full p-4 overflow-hidden">
+      <div className="flex-1 overflow-y-auto pr-4">
+        <div className="flex flex-col items-center">
+          <div className="max-w-md w-full">
             <TimerDisplay
-              session={selectedSession}
-              timeRemaining={displayTimeRemaining}
-              isRunning={displayIsRunning}
+              session={activeSession}
+              timeRemaining={timeRemaining}
+              isRunning={isRunning}
               isBreak={isBreakTime}
               breakTime={breakDuration}
               onStartPause={handleStartPause}
-              onComplete={handleComplete}
-              onSetBreakTime={(minutes) => {
-                // Not used anymore - using context state
-              }}
+              onComplete={() =>
+                activeSessionId && completeSession(activeSessionId)
+              }
               shortBreakMinutes={shortBreakMinutes}
               longBreakMinutes={longBreakMinutes}
               onSetShortBreak={setShortBreakMinutes}
@@ -192,52 +165,24 @@ export default function CountdownPage() {
               onSkipBreak={skipBreak}
               completedSessionsCount={completedSessionsCount}
             />
-
-            {/* SESSION LIST */}
-            <div className="mt-8 animate-slide-up">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-5">
-                Danh sách phiên học
-              </h2>
-
-              <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                {sessions
-                  .filter((s) => s.status !== "completed")
-                  .map((s, idx) => (
-                    <div
-                      key={s.id}
-                      style={{ animationDelay: `${idx * 40}ms` }}
-                      className="animate-scale-in relative"
-                    >
-                      <SessionCard
-                        session={s}
-                        isActive={s.id === selectedSessionId}
-                        onClick={() => handleSelectSession(s.id)}
-                      />
-
-                      {/* Badge cho session đang chạy */}
-                      {s.id === activeSessionId &&
-                        isRunning &&
-                        !isBreakTime && (
-                          <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-green-500/90 backdrop-blur-sm rounded-full">
-                            <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                            <span className="text-[10px] text-white font-bold uppercase tracking-wide">
-                              Running
-                            </span>
-                          </div>
-                        )}
-                    </div>
-                  ))}
-              </div>
-            </div>
           </div>
 
-          {/* RIGHT: Completed tasks */}
-          <div className="lg:col-span-1">
-            <CompletedTasks
-              sessions={sessions.filter((s) => s.status === "completed")}
+          <h2 className="text-xl font-bold mt-8 mb-4 text-slate-800 dark:text-white">
+            Danh sách phiên học
+          </h2>
+
+          <div className="w-full max-w-xl">
+            <SessionList
+              sessions={pendingSessions}
+              activeSessionId={activeSessionId}
+              onSwitchSession={handleSwitchSession}
             />
           </div>
         </div>
+      </div>
+
+      <div className="w-80 border-l pl-4 border-slate-200 dark:border-slate-800 overflow-y-auto">
+        <TotalTimeDisplay sessions={completedSessions} />
       </div>
     </div>
   );

@@ -19,6 +19,29 @@ const postLogin = async(email : string, password: string) => {
     return response.data;
 }
 
+const postForgotPassword = async( email: string) => {
+  const response = await instance.post(`/api/auth/forgot-password`, {
+    email
+  })
+  return response.data;
+}
+
+const postVerifyOTP = async(email: string, otp:string) => {
+  const response = await instance.post(`/api/auth/verify-otp`, {
+    email,
+    otp
+  })
+  return response.data;
+}
+
+const postResetPassword = async(email: string, newPassword: string) => {
+  const response = await instance.post(`/api/auth/reset-password`, {
+    email,
+    newPassword
+  });
+  return response.data;
+}
+
 const postGoogleLogin = async( credential: string) =>{
     const response = await instance.post(`/api/auth/google`,{
         credential
@@ -127,4 +150,42 @@ const pomodoroHistory = async (): Promise<Session[]> => {
   return data.map(mapSessionFromBackend);
 };
 
-export { postRegister, postLogin, postGoogleLogin, postTask, getTasks, updateTaskByID, deleteTaskByID, pomodoroHistory, pomodoroStart,pomodoroStop, pomodoroPause, pomodoroResume, mapSessionFromBackend}
+const getStudyLogDaily = async (
+  date?: string
+): Promise<{ totalMinutes: number; tasksCompleted: number }> => {
+  const params = date ? { date } : {};
+  const response = await instance.get(`/api/logs/daily`, { params });
+  return response.data;
+};
+
+const getStudyLogWeekly = async () => {
+  const response = await instance.get(`/api/logs/weekly`);
+  return response.data as {
+    date: string;
+    totalMinutes: number;
+    tasksCompleted: number;
+  }[];
+};
+
+
+const getStudyLogMonthly = async () => {
+  const response = await instance.get(`/api/logs/monthly`);
+  return response.data as {
+    date: string;
+    totalMinutes: number;
+    tasksCompleted: number;
+  }[];
+};
+
+
+const logStudySession = async (data: {
+  taskName: string;
+  duration: number; // Tính bằng PHÚT
+  completedAt: string; // ISO string (VD: "2023-12-02T14:30:00.000Z")
+}) => {
+  const response = await instance.post(`/api/logs/log-session`, data);
+  return response.data;
+};
+
+
+export { postRegister, postLogin, postGoogleLogin, postTask, getTasks, updateTaskByID, deleteTaskByID, pomodoroHistory, pomodoroStart,pomodoroStop, pomodoroPause, pomodoroResume, mapSessionFromBackend, getStudyLogDaily, postForgotPassword, postResetPassword, postVerifyOTP, getStudyLogMonthly,getStudyLogWeekly,logStudySession}

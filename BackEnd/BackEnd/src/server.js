@@ -32,7 +32,7 @@ app.use(morgan("dev"));
 // Giới hạn request (chống DDoS nhẹ)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 phút
-  max: 200,
+  max: 2000,
   message: "Too many requests, please try again later.",
 });
 app.use(limiter);
