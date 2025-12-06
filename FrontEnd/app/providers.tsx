@@ -1,30 +1,48 @@
 "use client";
 
 import { Provider } from "react-redux";
-import { store } from "../redux/store";
+import { PersistGate } from "redux-persist/integration/react";
+import { store, persistor } from "../redux/store";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { SoundProvider } from "@/contexts/sound-context"; // ✅ THÊM IMPORT
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <Provider store={store}>
-      <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
-        {children}
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="colored"
-        />
-      </GoogleOAuthProvider>
+      <PersistGate
+        loading={
+          <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 flex items-center justify-center">
+            <div className="animate-pulse text-white text-center">
+              <div className="w-12 h-12 bg-white rounded-full mx-auto mb-4 animate-spin"></div>
+              <p>Đang khôi phục phiên...</p>
+            </div>
+          </div>
+        }
+        persistor={persistor}
+      >
+        <GoogleOAuthProvider
+          clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}
+        >
+          {/* ✅ WRAP SOUNDPROVIDER Ở ĐÂY */}
+          <SoundProvider>
+            {children}
+            <ToastContainer
+              position="top-right"
+              autoClose={3000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="colored"
+            />
+          </SoundProvider>
+        </GoogleOAuthProvider>
+      </PersistGate>
     </Provider>
   );
 }

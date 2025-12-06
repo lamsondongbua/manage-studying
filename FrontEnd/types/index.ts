@@ -13,7 +13,7 @@ export interface Session {
   id: string;
   taskName: string;
   duration: number; // in minutes
-  timeRemaining: number; // in seconds
+  timeRemaining?: number; // in seconds
   
   status: "running" | "completed" | "paused" | "pending"; 
   

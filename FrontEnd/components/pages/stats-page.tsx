@@ -188,29 +188,29 @@ export default function StatsPage() {
             </p>
           </div>
 
-          <div className="p-6 bg-white rounded-lg shadow">
+          <span className="p-6 bg-white rounded-lg shadow">
             <p className="text-gray-600 mb-2">
               {topTasks.length > 1
                 ? "Công việc nhiều nhất (ngang nhau)"
                 : "Công việc nhiều nhất"}
             </p>
             {topTasks.length > 0 ? (
-              <div className="space-y-1">
+              <span className="space-y-1">
                 {topTasks.map((task, index) => (
-                  <div key={index}>
-                    <p
+                  <span key={index}>
+                    <span
                       className="text-lg font-bold text-purple-600 truncate"
                       title={task.name}
                     >
                       {task.name}
-                    </p>
-                  </div>
+                    </span> , 
+                  </span>
                 ))}
-              </div>
+              </span>
             ) : (
               <p className="text-xl font-bold text-gray-400">N/A</p>
             )}
-          </div>
+          </span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

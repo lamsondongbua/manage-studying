@@ -49,6 +49,11 @@ const postGoogleLogin = async( credential: string) =>{
     return response.data;
 }
 
+const getProfile = async() => {
+  const response = await instance.get(`/api/auth/profile`)
+  return response.data;
+}
+
 const postTask = async(title: string, description: string, dueDate: Date, duration : number ) => {
     const response = await instance.post(`/api/tasks/`,{
         title,
@@ -188,4 +193,4 @@ const logStudySession = async (data: {
 };
 
 
-export { postRegister, postLogin, postGoogleLogin, postTask, getTasks, updateTaskByID, deleteTaskByID, pomodoroHistory, pomodoroStart,pomodoroStop, pomodoroPause, pomodoroResume, mapSessionFromBackend, getStudyLogDaily, postForgotPassword, postResetPassword, postVerifyOTP, getStudyLogMonthly,getStudyLogWeekly,logStudySession}
+export { postRegister, postLogin, postGoogleLogin, getProfile, postTask, getTasks, updateTaskByID, deleteTaskByID, pomodoroHistory, pomodoroStart,pomodoroStop, pomodoroPause, pomodoroResume, mapSessionFromBackend, getStudyLogDaily, postForgotPassword, postResetPassword, postVerifyOTP, getStudyLogMonthly,getStudyLogWeekly,logStudySession}

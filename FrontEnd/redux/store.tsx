@@ -40,6 +40,7 @@ const rootReducer = combineReducers({
 
 const persistConfig = {
   key: "root",
+  version: 1, // ✅ THÊM VERSION
   storage,
   whitelist: ["user"],
 };

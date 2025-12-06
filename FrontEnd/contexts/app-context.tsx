@@ -17,6 +17,7 @@ import {
   pomodoroResume,
   logStudySession,
 } from "@/services/apiServices";
+import { useSoundContext } from "@/contexts/sound-context";
 
 interface AppContextType {
   // TASKS
@@ -69,6 +70,9 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  //Sound
+  const { playCompletionSound } = useSoundContext();
+
   // ==================== TASKS ====================
   const [tasks, setTasks] = useState<Task[]>([]);
   const addTask = useCallback(
@@ -232,15 +236,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setBreakDuration(minutes);
     setBreakTimeRemaining(minutes * 60);
-
+    setIsBreakTime(true);
+    clearSessionInterval();
+    clearBreakInterval();
     setTimeout(() => {
       startBreakTimer();
-    }, 200);
+    }, 500);
   }, [
     longBreakMinutes,
     shortBreakMinutes,
     startBreakTimer,
     completedSessionsCount,
+    clearSessionInterval,
+    clearBreakInterval,
   ]);
 
   // ------------------- COMPLETE SESSION -------------------
@@ -271,6 +279,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
                 }
           )
         );
+        await playCompletionSound();
+        console.log("✅ Sound finished playing, now starting break...");
 
         setCompletedSessionsCount((count) => {
           const newCount = count + 1;
@@ -283,7 +293,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         throw err;
       }
     },
-    [activeSessionId, clearSessionInterval, startBreak]
+    [activeSessionId, clearSessionInterval, startBreak, playCompletionSound]
   );
 
   // ------------------- START SESSION -------------------

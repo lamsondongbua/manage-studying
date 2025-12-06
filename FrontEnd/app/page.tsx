@@ -1,27 +1,41 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
 import { AppProvider } from "@/contexts/app-context";
 import AuthPage from "@/components/auth/auth-page";
 import MainApp from "@/components/main-app";
 
 export default function Home() {
-  // ✅ Khởi tạo user = null, KHÔNG đọc từ localStorage
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Lấy user từ Redux store
+  const reduxUser = useSelector((state: RootState) => state.user);
+
   useEffect(() => {
-    // ✅ Trong thực tế, đây là nơi kiểm tra session từ backend
-    // Ví dụ: axios.get('/api/verify-session').then(...)
+    console.log("🔍 [Home] Redux user state:", reduxUser);
 
-    // Giả lập thời gian check session
-    const timer = setTimeout(() => {
-      // ✅ Không làm gì cả, để user = null
-      setLoading(false);
-    }, 500);
+    // ✅ Đồng bộ Redux state với React state
+    if (reduxUser.loggedIn && reduxUser.accessToken) {
+      console.log("✅ [Home] User logged in from Redux, setting user");
+      setUser({
+        username: reduxUser.username,
+        email: reduxUser.email,
+      });
+    } else {
+      console.log("❌ [Home] No logged in user in Redux");
+      setUser(null);
+    }
 
-    return () => clearTimeout(timer);
-  }, []);
+    setLoading(false);
+  }, [
+    reduxUser.loggedIn,
+    reduxUser.username,
+    reduxUser.email,
+    reduxUser.accessToken,
+  ]);
 
   // Hiển thị loading screen
   if (loading) {

@@ -27,7 +27,7 @@ export default function Sidebar({
     { id: "dashboard", label: "Dashboard", icon: "📊" },
     { id: "countdown", label: "Countdown", icon: "⏱️" },
     { id: "stats", label: "Thống kê", icon: "📈" },
-    { id: "total", label: "Tổng thời gian", icon: "⏳" },
+    { id: "settings", label: "Cài đặt", icon: "⚙️" },
     { id: "admin", label: "Admin", icon: "🔧" },
   ];
 
