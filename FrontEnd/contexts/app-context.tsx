@@ -211,6 +211,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         return currentSessions;
       }
       const next = pending[0];
+
+      // ✅ THÊM: Kiểm tra session có hợp lệ không
+      console.log("🔍 Next session to resume:", {
+        id: next.id,
+        taskName: next.taskName,
+        status: next.status,
+        timeRemaining: next.timeRemaining,
+      });
+
       setIsBreakTime(false);
       setActiveSessionId(next.id);
       setSessionTimeRemaining(next.timeRemaining ?? next.duration * 60);
@@ -218,11 +227,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
       setTimeout(async () => {
         try {
-          await pomodoroResume(next.id);
+          // ✅ CHỈ GỌI RESUME NẾU SESSION ĐANG PAUSED
+          if (next.status === "paused") {
+            await pomodoroResume(next.id);
+          }
           clearSessionInterval();
           startSessionTimer(next.id);
         } catch (err) {
           console.error("Failed to auto-resume next session", err);
+          // ✅ THÊM: Nếu lỗi 404, bỏ qua và chỉ start timer local
+          console.log(
+            "⚠️ Session not found in backend, starting local timer only"
+          );
         }
       }, 300);
       return currentSessions;

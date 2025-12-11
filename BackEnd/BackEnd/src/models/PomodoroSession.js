@@ -16,6 +16,7 @@ const PomodoroSchema = new mongoose.Schema(
       type: Number,
       default: 0, // Tổng thời gian đã pause (giây)
     },
+    isCompleted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

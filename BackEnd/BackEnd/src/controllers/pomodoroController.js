@@ -9,7 +9,6 @@ exports.start = async (req, res) => {
       taskName: taskName || "Pomodoro Session",
       startTime: new Date(),
       durationMinutes,
-      status: "running",
       totalPausedTime: 0,
       pausedAt: null,
     });
@@ -92,7 +91,12 @@ exports.pause = async (req, res) => {
 };
 
 // ✅ Resume - Tính tổng thời gian pause và reset pausedAt
+// controllers/pomodoroController.js
 exports.resume = async (req, res) => {
+  console.log("🔥 RESUME ENDPOINT ĐƯỢC GỌI!"); // ← THÊM DÒNG NÀY
+  console.log("📦 Body:", req.body);
+  console.log("👤 User:", req.user?._id);
+  
   const { sessionId } = req.body;
   try {
     const session = await Pomodoro.findOne({
@@ -102,20 +106,16 @@ exports.resume = async (req, res) => {
     });
 
     if (!session) {
+      console.log("❌ Session not found");
       return res.status(404).json({ msg: "Session not found" });
     }
 
-    // Nếu đang pause → tính thời gian pause và reset
     if (session.pausedAt) {
       const pausedDuration = (new Date() - new Date(session.pausedAt)) / 1000;
       session.totalPausedTime += Math.floor(pausedDuration);
       session.pausedAt = null;
       await session.save();
-      console.log(
-        "▶️ Session resumed, total paused time:",
-        session.totalPausedTime,
-        "seconds"
-      );
+      console.log("▶️ Session resumed, total paused time:", session.totalPausedTime, "seconds");
     }
 
     const response = session.toObject();
