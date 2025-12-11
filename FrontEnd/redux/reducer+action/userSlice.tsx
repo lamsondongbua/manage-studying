@@ -1,10 +1,13 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { stat } from 'fs';
 
 interface UserState {
   username: string;       // lưu fullName từ backend
   email: string;
   accessToken: string;
   refreshToken: string;
+  role: string;
+  status: string;
   loggedIn: boolean;
   error?: string | null;
 }
@@ -12,6 +15,8 @@ interface UserState {
 const initialState: UserState = {
   username: '',
   email: '',
+  role: '',
+  status: '',
   accessToken: '',
   refreshToken: '',
   loggedIn: false,
@@ -28,12 +33,16 @@ const userSlice = createSlice({
       action: PayloadAction<{
         username: string;
         email: string;
+        role: string;
+        status: string;
         accessToken: string;
         refreshToken: string;
       }>
     ) => {
       state.username = action.payload.username;
       state.email = action.payload.email;
+      state.role = action.payload.role;
+      state.status = action.payload.status;
       state.accessToken = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
       state.loggedIn = true;
@@ -52,6 +61,8 @@ const userSlice = createSlice({
     logout: (state) => {
       state.username = "";
       state.email = "";
+      state.role = '';
+      state.status = "";
       state.accessToken = "";
       state.refreshToken = "";
       state.loggedIn = false;

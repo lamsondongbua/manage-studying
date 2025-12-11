@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { type } = require("os");
 
 const UserSchema = new mongoose.Schema(
   {
@@ -12,6 +13,7 @@ const UserSchema = new mongoose.Schema(
     },
     password: { type: String, required: true },
     role: { type: String, enum: ["user", "admin"], default: "user" },
+    status: {type: String, required: true, default: "active"},
 
     // Token đăng nhập
     refreshToken: { type: String },

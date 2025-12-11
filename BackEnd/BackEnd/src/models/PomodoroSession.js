@@ -7,6 +7,7 @@ const PomodoroSchema = new mongoose.Schema(
     startTime: { type: Date, required: true },
     endTime: { type: Date },
     durationMinutes: { type: Number, default: 0 },
+    status: {type: String, default: "running"},
     pausedAt: {
       type: Date,
       default: null,
@@ -15,7 +16,6 @@ const PomodoroSchema = new mongoose.Schema(
       type: Number,
       default: 0, // Tổng thời gian đã pause (giây)
     },
-    isCompleted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

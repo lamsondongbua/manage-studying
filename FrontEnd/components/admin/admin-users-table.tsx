@@ -4,16 +4,18 @@ import { useState } from 'react';
 import { useAdmin } from '@/contexts/admin-context';
 import { Shield, Ban, Check, Trash2, Eye } from 'lucide-react';
 import AdminUsersDetail from './admin-users-detail';
+import { formatDateVN } from "../../util/date";
+
 
 export default function AdminUsersTable() {
   const { users, updateUserStatus, deleteUser } = useAdmin();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-500/20 text-green-400 border-green-500/30';
       case 'inactive': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-      case 'suspended': return 'bg-red-500/20 text-red-400 border-red-500/30';
       default: return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
     }
   };
@@ -27,12 +29,12 @@ export default function AdminUsersTable() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/10">
+              <th className="text-left py-4 px-4 text-slate-400 font-semibold">Username</th>
               <th className="text-left py-4 px-4 text-slate-400 font-semibold">Email</th>
-              <th className="text-left py-4 px-4 text-slate-400 font-semibold">Trạng Thái</th>
-              <th className="text-left py-4 px-4 text-slate-400 font-semibold">Công Việc</th>
-              <th className="text-left py-4 px-4 text-slate-400 font-semibold">Đăng Ký</th>
-              <th className="text-left py-4 px-4 text-slate-400 font-semibold">Đăng Nhập Cuối</th>
-              <th className="text-left py-4 px-4 text-slate-400 font-semibold">Hành Động</th>
+              <th className="text-left py-4 px-4 text-slate-400 font-semibold">Role</th>
+              <th className="text-left py-4 px-4 text-slate-400 font-semibold">Status</th>
+              <th className="text-left py-4 px-4 text-slate-400 font-semibold">Create At</th>
+              <th className="text-left py-4 px-4 text-slate-400 font-semibold">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -48,14 +50,12 @@ export default function AdminUsersTable() {
                 <td className="py-4 px-4">
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(user.status)}`}>
                     {user.status === 'active' && <Check size={14} className="mr-1" />}
-                    {user.status === 'suspended' && <Ban size={14} className="mr-1" />}
                     {user.status === 'active' ? 'Hoạt Động' : user.status === 'inactive' ? 'Không Hoạt Động' : 'Bị Khóa'}
                   </span>
                 </td>
                 <td className="py-4 px-4 text-purple-400 font-semibold">{user.stats.completedTasks}</td>
-                <td className="py-4 px-4 text-slate-400 text-xs">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</td>
+                <td className="py-4 px-4 text-slate-400 text-xs">{formatDateVN(user.createdAt)}</td>
                 <td className="py-4 px-4 text-slate-400 text-xs">
-                  {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('vi-VN') : 'Chưa'}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex gap-2">

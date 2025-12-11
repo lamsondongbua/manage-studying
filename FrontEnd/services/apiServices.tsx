@@ -2,86 +2,91 @@
 import instance from "@/util/axiosCustomize";
 import { Session } from "@/types/index";
 
-const postRegister = async (username: string, email: string, password: string) => {
-    const response = await instance.post(`/api/auth/register`, {
-        username, 
-        email, 
-        password
-    });
-    return response.data; // ✅ Return response.data
-}
-
-const postLogin = async(email : string, password: string) => {
-    const response = await instance.post(`/api/auth/login`, {
-        email,
-        password
-    })
-    return response.data;
-}
-
-const postForgotPassword = async( email: string) => {
-  const response = await instance.post(`/api/auth/forgot-password`, {
-    email
-  })
-  return response.data;
-}
-
-const postVerifyOTP = async(email: string, otp:string) => {
-  const response = await instance.post(`/api/auth/verify-otp`, {
+const postRegister = async (
+  username: string,
+  email: string,
+  password: string
+) => {
+  const response = await instance.post(`/api/auth/register`, {
+    username,
     email,
-    otp
-  })
-  return response.data;
-}
+    password,
+  });
+  return response.data; // ✅ Return response.data
+};
 
-const postResetPassword = async(email: string, newPassword: string) => {
-  const response = await instance.post(`/api/auth/reset-password`, {
+const postLogin = async (email: string, password: string) => {
+  const response = await instance.post(`/api/auth/login`, {
     email,
-    newPassword
+    password,
   });
   return response.data;
-}
+};
 
-const postGoogleLogin = async( credential: string) =>{
-    const response = await instance.post(`/api/auth/google`,{
-        credential
-    })
-    return response.data;
-}
-
-const getProfile = async() => {
-  const response = await instance.get(`/api/auth/profile`)
+const postForgotPassword = async (email: string) => {
+  const response = await instance.post(`/api/auth/forgot-password`, {
+    email,
+  });
   return response.data;
-}
+};
 
-const postTask = async(title: string, description: string, dueDate: Date, duration : number ) => {
-    const response = await instance.post(`/api/tasks/`,{
-        title,
-        description,
-        dueDate,
-        duration
-    })
-    return response.data;
-}
+const postVerifyOTP = async (email: string, otp: string) => {
+  const response = await instance.post(`/api/auth/verify-otp`, {
+    email,
+    otp,
+  });
+  return response.data;
+};
 
-const getTasks = async() => {
-    const response = await instance.get(`/api/tasks`);
-    return response.data;
-}
+const postResetPassword = async (email: string, newPassword: string) => {
+  const response = await instance.post(`/api/auth/reset-password`, {
+    email,
+    newPassword,
+  });
+  return response.data;
+};
 
+const postGoogleLogin = async (credential: string) => {
+  const response = await instance.post(`/api/auth/google`, {
+    credential,
+  });
+  return response.data;
+};
+
+const getProfile = async () => {
+  const response = await instance.get(`/api/auth/profile`);
+  return response.data;
+};
+
+const postTask = async (
+  title: string,
+  description: string,
+  dueDate: Date,
+  duration: number
+) => {
+  const response = await instance.post(`/api/tasks/`, {
+    title,
+    description,
+    dueDate,
+    duration,
+  });
+  return response.data;
+};
+
+const getTasks = async () => {
+  const response = await instance.get(`/api/tasks`);
+  return response.data;
+};
 
 const updateTaskByID = async <T,>(id: string, data: T) => {
   const response = await instance.put(`/api/tasks/${id}`, data);
   return response.data;
 };
 
-
 const deleteTaskByID = async (id: string) => {
   const res = await instance.delete(`/api/tasks/${id}`);
   return res.data; // ⚡ Trả về data để context cập nhật
 };
-
-
 
 // Start một session mới
 // Sửa pomodoroStart để nhận taskName
@@ -172,7 +177,6 @@ const getStudyLogWeekly = async () => {
   }[];
 };
 
-
 const getStudyLogMonthly = async () => {
   const response = await instance.get(`/api/logs/monthly`);
   return response.data as {
@@ -181,7 +185,6 @@ const getStudyLogMonthly = async () => {
     tasksCompleted: number;
   }[];
 };
-
 
 const logStudySession = async (data: {
   taskName: string;
@@ -192,5 +195,32 @@ const logStudySession = async (data: {
   return response.data;
 };
 
+const getAllUser = async () => {
+  const response = await instance.get(`/api/users/getAll`);
+  return response.data;
+};
 
-export { postRegister, postLogin, postGoogleLogin, getProfile, postTask, getTasks, updateTaskByID, deleteTaskByID, pomodoroHistory, pomodoroStart,pomodoroStop, pomodoroPause, pomodoroResume, mapSessionFromBackend, getStudyLogDaily, postForgotPassword, postResetPassword, postVerifyOTP, getStudyLogMonthly,getStudyLogWeekly,logStudySession}
+export {
+  postRegister,
+  postLogin,
+  postGoogleLogin,
+  getProfile,
+  postTask,
+  getTasks,
+  updateTaskByID,
+  deleteTaskByID,
+  pomodoroHistory,
+  pomodoroStart,
+  pomodoroStop,
+  pomodoroPause,
+  pomodoroResume,
+  mapSessionFromBackend,
+  getStudyLogDaily,
+  postForgotPassword,
+  postResetPassword,
+  postVerifyOTP,
+  getStudyLogMonthly,
+  getStudyLogWeekly,
+  logStudySession,
+  getAllUser,
+};

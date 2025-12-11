@@ -13,7 +13,6 @@ import {
 
 import userReducer from "./reducer+action/userSlice";
 
-// ✅ Fix: Tạo noop storage cho server-side
 const createNoopStorage = () => {
   return {
     getItem(_key: string) {
@@ -28,7 +27,6 @@ const createNoopStorage = () => {
   };
 };
 
-// ✅ Chỉ dùng localStorage khi ở client-side
 const storage =
   typeof window !== "undefined"
     ? createWebStorage("local")
@@ -40,9 +38,27 @@ const rootReducer = combineReducers({
 
 const persistConfig = {
   key: "root",
-  version: 1, // ✅ THÊM VERSION
+  version: 2, // ✅ TĂNG VERSION (từ 1 lên 2)
   storage,
   whitelist: ["user"],
+  migrate: (state: any) => {
+    // ✅ Migration function để handle version cũ
+    console.log("🔄 Migrating Redux state to version 2");
+
+    if (state && state.user) {
+      // Nếu state cũ không có role/status, set default
+      return Promise.resolve({
+        ...state,
+        user: {
+          ...state.user,
+          role: state.user.role || "user", // ✅ Set default
+          status: state.user.status || "active", // ✅ Set default
+        },
+      });
+    }
+
+    return Promise.resolve(state);
+  },
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

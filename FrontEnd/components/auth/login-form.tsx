@@ -56,6 +56,8 @@ export default function LoginForm({ onAuth, onSwitch }: LoginFormProps) {
         loginSuccess({
           username: data.user.username,
           email: data.user.email,
+          role: data.user.role,
+          status: data.user.status,
           accessToken: data.accessToken,
           refreshToken: data.refreshToken,
         })
@@ -82,6 +84,8 @@ export default function LoginForm({ onAuth, onSwitch }: LoginFormProps) {
         loginSuccess({
           username: data.user.username,
           email: data.user.email,
+          role: data.user.role,
+          status: data.user.status,
           accessToken: data.accessToken,
           refreshToken: data.refreshToken,
         })

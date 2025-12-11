@@ -9,6 +9,7 @@ exports.start = async (req, res) => {
       taskName: taskName || "Pomodoro Session",
       startTime: new Date(),
       durationMinutes,
+      status: "running",
       totalPausedTime: 0,
       pausedAt: null,
     });

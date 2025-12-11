@@ -11,9 +11,10 @@ export interface AdminUser {
   id: string;
   email: string;
   name?: string;
-  status: 'active' | 'inactive' | 'suspended';
+  role:string;
+  status: 'active' | 'inactive';
   createdAt: Date;
-  lastLogin?: Date;
+  updateAt: Date;
   stats: UserStats;
 }
 

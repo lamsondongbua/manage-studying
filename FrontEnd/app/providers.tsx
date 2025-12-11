@@ -1,3 +1,4 @@
+// app/providers.tsx
 "use client";
 
 import { Provider } from "react-redux";
@@ -6,7 +7,8 @@ import { store, persistor } from "../redux/store";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import { SoundProvider } from "@/contexts/sound-context"; // ✅ THÊM IMPORT
+import { SoundProvider } from "@/contexts/sound-context";
+import { AdminProvider } from "@/contexts/admin-context"; // ✅ THÊM IMPORT
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -25,21 +27,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <GoogleOAuthProvider
           clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}
         >
-          {/* ✅ WRAP SOUNDPROVIDER Ở ĐÂY */}
           <SoundProvider>
-            {children}
-            <ToastContainer
-              position="top-right"
-              autoClose={3000}
-              hideProgressBar={false}
-              newestOnTop={false}
-              closeOnClick
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-              theme="colored"
-            />
+            {/* ✅ WRAP AdminProvider */}
+            <AdminProvider>
+              {children}
+              <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="colored"
+              />
+            </AdminProvider>
           </SoundProvider>
         </GoogleOAuthProvider>
       </PersistGate>

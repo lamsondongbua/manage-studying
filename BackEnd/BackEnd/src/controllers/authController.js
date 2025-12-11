@@ -64,7 +64,7 @@ exports.login = async (req, res) => {
     const tokens = genTokens(user);
     res.json({
       msg: "Login successful",
-      user: { id: user._id, username: user.username, email: user.email },
+      user: { id: user._id, username: user.username, email: user.email, role: user.role, status: user.status },
       ...tokens,
     });
   } catch (err) {
@@ -179,6 +179,8 @@ exports.googleLogin = async (req, res) => {
         username: user.username,
         email: user.email,
         picture,
+        role: user.role, // ⬅️ THÊM VÀO
+        status: user.status, // ⬅️ THÊM VÀO
       },
       ...tokens,
     });

@@ -23,13 +23,22 @@ export default function Sidebar({
 
   const { cleanupActiveSession, isRunning, activeSessionId } = useAppContext();
 
-  const menuItems = [
+  const allMenuItems = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
     { id: "countdown", label: "Countdown", icon: "⏱️" },
     { id: "stats", label: "Thống kê", icon: "📈" },
     { id: "settings", label: "Cài đặt", icon: "⚙️" },
-    { id: "admin", label: "Admin", icon: "🔧" },
+    { id: "admin", label: "Admin", icon: "🔧", adminOnly: true }, // Thêm flag adminOnly
   ];
+
+  // Filter menu items dựa trên role
+  const menuItems = allMenuItems.filter((item) => {
+    // Nếu item yêu cầu admin và user không phải admin thì ẩn
+    if (item.adminOnly && user?.role !== "admin") {
+      return false;
+    }
+    return true;
+  });
 
   const handleLogout = async () => {
     try {
@@ -110,6 +119,14 @@ export default function Sidebar({
             <p className="font-bold text-white truncate mt-1">
               {user?.name || user?.email}
             </p>
+            {/* Hiển thị badge Admin nếu là admin */}
+            {user?.role === "admin" && (
+              <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500/20 border border-yellow-400/30 rounded-md">
+                <span className="text-xs text-yellow-200 font-semibold">
+                  👑 Admin
+                </span>
+              </div>
+            )}
 
             {isRunning && (
               <div className="mt-2 flex items-center gap-2 px-2 py-1 bg-green-500/20 border border-green-400/30 rounded-lg">

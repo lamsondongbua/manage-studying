@@ -23,6 +23,8 @@ export default function Home() {
       setUser({
         username: reduxUser.username,
         email: reduxUser.email,
+        role: reduxUser.role,
+        status: reduxUser.status,
       });
     } else {
       console.log("❌ [Home] No logged in user in Redux");
@@ -34,6 +36,8 @@ export default function Home() {
     reduxUser.loggedIn,
     reduxUser.username,
     reduxUser.email,
+    reduxUser.role,
+    reduxUser.status,
     reduxUser.accessToken,
   ]);
 
