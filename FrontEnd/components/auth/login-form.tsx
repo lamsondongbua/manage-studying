@@ -50,6 +50,12 @@ export default function LoginForm({ onAuth, onSwitch }: LoginFormProps) {
 
       const data = await postLogin(email, password);
 
+      if (data.user.status === "inactive") {
+        toast.error("Tài khoản không còn hoạt động");
+        dispatch(loginFailure("Tài khoản không còn hoạt động"));
+        return;
+      }
+
       toast.success(data.msg || "Đăng nhập thành công!");
 
       dispatch(

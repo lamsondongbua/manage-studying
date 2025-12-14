@@ -1,24 +1,23 @@
 "use client";
 
 import { useAdmin } from "@/contexts/admin-context";
-import { getAllUser } from "@/services/apiServices";
-import { AdminUser, TaskRecord } from "@/types/admin";
 import { Users, Zap, Clock, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
-
-// interface AdminStatsProps {
-//   users: AdminUser[];
-//   tasks: TaskRecord[];
-// }
 
 export default function AdminStats() {
-
-  const { users, tasks, completedCount } = useAdmin();
-
-  console.log("Số lượng công việc hoàn thành",completedCount)
+  const { users, tasks, adminSessions, totalCompletedSessions } = useAdmin();
 
   const totalUser = users.length;
   const activeUsers = users.filter((u) => u.status === "active").length;
+
+  // ✅ Tính tổng thời gian từ adminSessions (tất cả user)
+  const totalFocusMinutes = adminSessions
+    ? adminSessions.reduce((total, session) => {
+        return total + (session.duration || 0);
+      }, 0)
+    : 0;
+
+  // ✅ Chuyển đổi sang giờ (làm tròn 1 chữ số thập phân)
+  const totalFocusHours = (totalFocusMinutes / 60).toFixed(1);
 
   const stats = [
     {
@@ -30,13 +29,13 @@ export default function AdminStats() {
     {
       icon: Zap,
       label: "Công Việc Hoàn Thành",
-      value: completedCount,
+      value: totalCompletedSessions, // ✅ Số session hoàn thành từ tất cả user
       color: "from-cyan-500 to-cyan-600",
     },
     {
       icon: Clock,
       label: "Tổng Thời Gian (giờ)",
-      value: Math.round(tasks.reduce((sum, t) => sum + t.duration, 0) / 60),
+      value: totalFocusHours, // ✅ Tổng thời gian học của tất cả user
       color: "from-orange-500 to-orange-600",
     },
     {

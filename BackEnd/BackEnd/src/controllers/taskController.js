@@ -53,3 +53,40 @@ exports.deleteTask = async (req, res) => {
     res.status(500).send("Server error");
   }
 };
+
+/* -----------------------------------------------------
+   GET TASKS BY USER ID (ADMIN)
+-------------------------------------------------------*/
+exports.getTasksByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!userId) {
+      return res.status(400).json({ msg: "Missing user id" });
+    }
+
+    const Task = require("../models/Task");
+    
+    const tasks = await Task.find({ user: userId }).sort({ createdAt: -1 });
+    
+    // Phân loại tasks
+    const completedTasks = tasks.filter(t => t.isCompleted === true);
+    const incompleteTasks = tasks.filter(t => t.isCompleted !== true);
+
+    console.log(`📋 Admin fetched ${tasks.length} tasks for user ${userId}`);
+
+    res.json({
+      tasks,
+      completed: completedTasks,
+      incomplete: incompleteTasks,
+      stats: {
+        total: tasks.length,
+        completed: completedTasks.length,
+        incomplete: incompleteTasks.length,
+      }
+    });
+  } catch (err) {
+    console.error("❌ getTasksByUserId error:", err);
+    res.status(500).json({ msg: err.message });
+  }
+};

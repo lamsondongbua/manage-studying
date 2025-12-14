@@ -6,6 +6,7 @@ import { RootState } from "@/redux/store";
 import { AppProvider } from "@/contexts/app-context";
 import AuthPage from "@/components/auth/auth-page";
 import MainApp from "@/components/main-app";
+import { toast } from "react-toastify";
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
@@ -54,7 +55,7 @@ export default function Home() {
   }
 
   // ✅ Nếu user = null → Hiển thị trang đăng nhập
-  if (!user) {
+  if (!user || reduxUser.status === 'inactive') {
     return <AuthPage setUser={setUser} />;
   }
 

@@ -27,3 +27,28 @@ export interface TaskRecord {
   createdAt: Date;
   completedAt?: Date;
 }
+
+
+export interface UserStatistics {
+  tasks: {
+    tasks: any[];
+    completed: any[];
+    incomplete: any[];
+    stats: {
+      total: number;
+      completed: number;
+      incomplete: number;
+    };
+  };
+  sessions: {
+    sessions: any[];
+    completed: any[];
+    incomplete: any[];
+    stats: {
+      total: number;
+      completed: number;
+      incomplete: number;
+      totalMinutes: number;
+    };
+  };
+}

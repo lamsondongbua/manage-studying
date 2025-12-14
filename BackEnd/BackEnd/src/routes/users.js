@@ -6,6 +6,7 @@ const isAdmin = require("../middleware/isAdmin");
 const {
   createUser,
   updateUser,
+  updateUserStatus, // ✅ Import thêm
   getOneUser,
   getAllUsers,
   deleteUser,
@@ -15,15 +16,18 @@ const {
 router.post("/create", auth, isAdmin, createUser);
 
 // UPDATE
-router.put("/update", auth, isAdmin, updateUser);
+router.put("/:userId", auth, isAdmin, updateUser);
 
-// GET ONE USER
-router.post("/getOne", auth, getOneUser);
+// UPDATE STATUS - ✅ Gọi từ controller
+router.patch("/:userId/status", auth, isAdmin, updateUserStatus);
+
 
 // GET ALL USERS
-router.get("/getAll", auth, getAllUsers);
+router.get("/getAll", auth, isAdmin, getAllUsers);
 
+// GET ONE USER
+router.get("/:userId", auth, isAdmin, getOneUser);
 // DELETE
-router.delete("/delete", auth, isAdmin, deleteUser);
+router.delete("/:userId", auth, isAdmin, deleteUser);
 
 module.exports = router;
