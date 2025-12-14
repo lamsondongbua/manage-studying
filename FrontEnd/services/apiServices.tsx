@@ -297,6 +297,37 @@ const getUserStatistics = async (userId: string) => {
   }
 };
 
+// ✅ ADMIN: Create task for user
+const createTaskForUser = async (data: {
+  userId: string;
+  title: string;
+  description?: string;
+  dueDate?: string;
+  duration?: number;
+}) => {
+  const response = await instance.post(`/api/tasks/admin/create`, data);
+  return response.data;
+};
+
+
+// ✅ ADMIN: Update task for any user
+const updateTaskForUser = async (taskId: string, data: {
+  title?: string;
+  description?: string;
+  dueDate?: string;
+  duration?: number;
+  completed?: boolean;
+}) => {
+  const response = await instance.put(`/api/tasks/admin/${taskId}`, data);
+  return response.data;
+};
+
+// ✅ ADMIN: Delete task for any user
+const deleteTaskForUser = async (taskId: string) => {
+  const response = await instance.delete(`/api/tasks/admin/${taskId}`);
+  return response.data;
+};
+
 export {
   postRegister,
   postLogin,
@@ -326,5 +357,8 @@ export {
   updateUser,
   updateUserStatus,
   deleteUser,
-  getUserStatistics
+  getUserStatistics, 
+  createTaskForUser,
+  updateTaskForUser,
+  deleteTaskForUser
 };

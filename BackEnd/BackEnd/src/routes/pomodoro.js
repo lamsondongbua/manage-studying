@@ -14,6 +14,7 @@ router.get("/history", pomodoroController.history);
 
 router.get("/admin/all-sessions",auth,admin,pomodoroController.adminGetAllSessions);
 router.get("/admin/user/:userId", admin, pomodoroController.getSessionsByUserId); // ✅ NEW
+router.delete("/admin/session/:sessionId", admin, pomodoroController.deleteSession); // ✅ NEW
 
 
 

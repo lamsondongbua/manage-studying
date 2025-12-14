@@ -9,6 +9,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { SoundProvider } from "@/contexts/sound-context";
 import { AdminProvider } from "@/contexts/admin-context"; // ✅ THÊM IMPORT
+import FocusModeGuard from "@/components/focus/FocusModeGuard";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -30,6 +31,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <SoundProvider>
             {/* ✅ WRAP AdminProvider */}
             <AdminProvider>
+              <FocusModeGuard /> {/* ✅ GLOBAL */}
               {children}
               <ToastContainer
                 position="top-right"

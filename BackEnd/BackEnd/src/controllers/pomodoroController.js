@@ -269,3 +269,32 @@ exports.getSessionsByUserId = async (req, res) => {
     res.status(500).json({ msg: err.message });
   }
 };
+
+// ✅ DELETE SESSION (Admin only)
+exports.deleteSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    if (!sessionId) {
+      return res.status(400).json({ msg: "Missing session id" });
+    }
+
+    const Pomodoro = require("../models/PomodoroSession");
+
+    const session = await Pomodoro.findByIdAndDelete(sessionId);
+
+    if (!session) {
+      return res.status(404).json({ msg: "Session not found" });
+    }
+
+    console.log(`✅ Admin deleted session ${sessionId}`);
+
+    res.json({ 
+      msg: "Session deleted successfully",
+      deletedSession: session 
+    });
+  } catch (err) {
+    console.error("❌ deleteSession error:", err);
+    res.status(500).json({ msg: err.message });
+  }
+};
