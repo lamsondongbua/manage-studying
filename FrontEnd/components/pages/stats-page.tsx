@@ -35,6 +35,14 @@ export default function StatsPage() {
 
   const COLORS = ["#4f46e5", "#7c3aed", "#db2777", "#ea580c", "#ca8a04"];
 
+  // ✅ Formatter để tránh NaN trong Tooltip
+  const formatTooltipValue = (value: number) => {
+    if (isNaN(value) || value === undefined || value === null) {
+      return "0";
+    }
+    return value.toFixed(4);
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -42,73 +50,93 @@ export default function StatsPage() {
         const now = new Date();
         const todayVNStr = formatDateVNISO(now);
 
+        // ==================== DAILY DATA ====================
         const todaySessions = sessions.filter(
           (s) => s.completedAt && formatDateVNISO(s.completedAt) === todayVNStr
         );
         const totalMinutesToday = todaySessions.reduce(
-          (sum, s) => sum + s.duration,
+          (sum, s) => sum + (s.duration || 0),
           0
         );
+
+        // ✅ Pass Date object vào formatDateVN
         setDailyData([
           {
-            name: formatDateVN(todayVNStr),
-            hours: totalMinutesToday / 60,
-            minutes: totalMinutesToday,
+            name: formatDateVN(now),
+            hours: totalMinutesToday ? totalMinutesToday / 60 : 0,
+            minutes: totalMinutesToday || 0,
           },
         ]);
 
+        // ==================== TASK STATS ====================
         const taskMap: { [key: string]: number } = {};
         todaySessions.forEach((s) => {
-          taskMap[s.taskName] = (taskMap[s.taskName] || 0) + s.duration;
+          taskMap[s.taskName] = (taskMap[s.taskName] || 0) + (s.duration || 0);
         });
 
         const mappedTasks: StudyStat[] = Object.entries(taskMap).map(
           ([name, minutes]) => ({
             name,
-            hours: minutes / 60,
-            minutes,
+            hours: minutes ? minutes / 60 : 0,
+            minutes: minutes || 0,
           })
         );
 
         mappedTasks.sort((a, b) => b.minutes - a.minutes);
-
         setTaskStats(mappedTasks);
 
+        // ==================== WEEKLY DATA ====================
         const startWeek = new Date(now);
         startWeek.setDate(now.getDate() - 6);
-        const weeklyMap: { [key: string]: number } = {};
+        startWeek.setHours(0, 0, 0, 0);
+
+        // ✅ Lưu cả Date object và minutes
+        const weeklyMap: { [key: string]: { date: Date; minutes: number } } =
+          {};
+
         for (let i = 0; i < 7; i++) {
-          const d = new Date(startWeek);
-          d.setDate(startWeek.getDate() + i);
+          const d = new Date(
+            startWeek.getFullYear(),
+            startWeek.getMonth(),
+            startWeek.getDate() + i
+          );
           const key = formatDateVNISO(d);
-          weeklyMap[key] = 0;
+          weeklyMap[key] = { date: d, minutes: 0 };
         }
+
         sessions.forEach((s) => {
           if (s.completedAt) {
             const key = formatDateVNISO(s.completedAt);
-            if (weeklyMap[key] !== undefined) weeklyMap[key] += s.duration;
+            if (weeklyMap[key]) {
+              weeklyMap[key].minutes += s.duration || 0;
+            }
           }
         });
-        const mappedWeekly: StudyStat[] = Object.entries(weeklyMap).map(
-          ([date, minutes]) => ({
+
+        // ✅ Pass Date object vào formatDateVN
+        const mappedWeekly: StudyStat[] = Object.values(weeklyMap).map(
+          ({ date, minutes }) => ({
             name: formatDateVN(date),
-            minutes,
-            hours: minutes / 60,
+            minutes: minutes || 0,
+            hours: minutes ? minutes / 60 : 0,
           })
         );
         setWeeklyData(mappedWeekly);
 
+        // ==================== MONTHLY DATA ====================
         const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const monthMap: { [key: string]: number } = {};
+
         sessions.forEach((s) => {
           if (s.completedAt) {
             const d = new Date(s.completedAt);
             if (d >= startMonth) {
               const key = `${d.getFullYear()}-${d.getMonth()}`;
-              monthMap[key] = (monthMap[key] || 0) + s.duration;
+              monthMap[key] = (monthMap[key] || 0) + (s.duration || 0);
             }
           }
         });
+
         const mappedMonthly: StudyStat[] = Object.entries(monthMap).map(
           ([key, minutes]) => {
             const [year, month] = key.split("-").map(Number);
@@ -117,14 +145,18 @@ export default function StatsPage() {
                 month: "long",
                 year: "numeric",
               }),
-              minutes,
-              hours: minutes / 60,
+              minutes: minutes || 0,
+              hours: minutes ? minutes / 60 : 0,
             };
           }
         );
         setMonthlyData(mappedMonthly);
 
-        const totalMinutes = sessions.reduce((sum, s) => sum + s.duration, 0);
+        // ==================== TOTAL STUDY TIME ====================
+        const totalMinutes = sessions.reduce(
+          (sum, s) => sum + (s.duration || 0),
+          0
+        );
         setTotalStudyTime(totalMinutes);
       } catch (err) {
         console.error(err);
@@ -135,7 +167,10 @@ export default function StatsPage() {
   }, []);
 
   const totalHours = totalStudyTime / 60;
-  const weeklyTotalMinutes = weeklyData.reduce((sum, d) => sum + d.minutes, 0);
+  const weeklyTotalMinutes = weeklyData.reduce(
+    (sum, d) => sum + (d.minutes || 0),
+    0
+  );
   const weeklyTotalHours = weeklyTotalMinutes / 60;
   const daysWithData = weeklyData.filter((d) => d.minutes > 0).length;
   const avgHoursPerDay = daysWithData > 0 ? weeklyTotalHours / daysWithData : 0;
@@ -188,29 +223,28 @@ export default function StatsPage() {
             </p>
           </div>
 
-          <span className="p-6 bg-white rounded-lg shadow">
+          <div className="p-6 bg-white rounded-lg shadow">
             <p className="text-gray-600 mb-2">
               {topTasks.length > 1
                 ? "Công việc nhiều nhất (ngang nhau)"
                 : "Công việc nhiều nhất"}
             </p>
             {topTasks.length > 0 ? (
-              <span className="space-y-1">
+              <div className="space-y-1">
                 {topTasks.map((task, index) => (
-                  <span key={index}>
-                    <span
-                      className="text-lg font-bold text-purple-600 truncate"
-                      title={task.name}
-                    >
-                      {task.name}
-                    </span> , 
-                  </span>
+                  <p
+                    key={index}
+                    className="text-lg font-bold text-purple-600 truncate"
+                    title={task.name}
+                  >
+                    {task.name}
+                  </p>
                 ))}
-              </span>
+              </div>
             ) : (
               <p className="text-xl font-bold text-gray-400">N/A</p>
             )}
-          </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -222,7 +256,7 @@ export default function StatsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip formatter={formatTooltipValue} />
                   <Bar
                     dataKey={showMinutes ? "minutes" : "hours"}
                     fill="#4f46e5"
@@ -260,7 +294,7 @@ export default function StatsPage() {
                       />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={formatTooltipValue} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -278,7 +312,7 @@ export default function StatsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip formatter={formatTooltipValue} />
                   <Line
                     type="monotone"
                     dataKey={showMinutes ? "minutes" : "hours"}
@@ -302,7 +336,7 @@ export default function StatsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip formatter={formatTooltipValue} />
                   <Line
                     type="monotone"
                     dataKey={showMinutes ? "minutes" : "hours"}

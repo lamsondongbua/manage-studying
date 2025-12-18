@@ -142,7 +142,7 @@ instance.interceptors.response.use(
         isRefreshing = false;
 
         store.dispatch(logout());
-        window.location.href = "/login";
+        window.location.href = "/";
 
         return Promise.reject(refreshError);
       }
