@@ -230,15 +230,15 @@ export default function StatsPage() {
                 : "Công việc nhiều nhất"}
             </p>
             {topTasks.length > 0 ? (
-              <div className="space-y-1">
+              <div className="flex flex-wrap gap-1">
                 {topTasks.map((task, index) => (
-                  <p
+                  <span
                     key={index}
-                    className="text-lg font-bold text-purple-600 truncate"
-                    title={task.name}
+                    className="text-lg font-bold text-purple-600"
                   >
                     {task.name}
-                  </p>
+                    {index < topTasks.length - 1 && ","}
+                  </span>
                 ))}
               </div>
             ) : (
