@@ -11,6 +11,7 @@ import {
   updateTaskByID,
   deleteTaskByID,
 } from "@/services/apiServices";
+import { toast } from "react-toastify";
 
 export default function Dashboard() {
   const { tasks, setTasks, removeTask, updateTask, startTask } =
@@ -51,6 +52,7 @@ export default function Dashboard() {
     try {
       const res = await updateTaskByID(taskData.id, taskData);
       updateTask(res);
+      toast.success('Cập nhật công việc thành công');
       setEditingTask(null);
     } catch (err) {
       console.error("Lỗi update task:", err);
@@ -61,6 +63,7 @@ export default function Dashboard() {
     try {
       await deleteTaskByID(taskId);
       removeTask(taskId);
+      toast.success('Xóa công việc thành công');
     } catch (err) {
       console.error("Lỗi xóa task:", err);
     }
@@ -85,8 +88,7 @@ export default function Dashboard() {
         console.warn("⚠️ Không thể xóa task trên server:", err);
       });
 
-
-      alert("✅ Đã tạo phiên học! Vào trang Countdown để xem timer.");
+      toast.success('Đã tạo phiên học! Vào trang Countdown để xem timer.');
     } catch (err: any) {
       console.error("❌ Lỗi khi start task:", err);
 

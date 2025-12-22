@@ -168,17 +168,11 @@ export default function AdminTasksChart() {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="glass-effect p-4 rounded-xl border border-white/10">
           <p className="text-slate-400 text-sm mb-1">Tổng Tasks</p>
           <p className="text-3xl font-bold text-purple-400">
             {allTasksData.length}
-          </p>
-        </div>
-        <div className="glass-effect p-4 rounded-xl border border-white/10">
-          <p className="text-slate-400 text-sm mb-1">Tasks Hoàn Thành</p>
-          <p className="text-3xl font-bold text-green-400">
-            {allTasksData.filter((t) => t.completed).length}
           </p>
         </div>
         <div className="glass-effect p-4 rounded-xl border border-white/10">
@@ -221,7 +215,7 @@ export default function AdminTasksChart() {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  background: "rgba(15,23,42,0.9)",
+                  background: "rgba(162, 171, 192, 0.9)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: "8px",
                 }}
