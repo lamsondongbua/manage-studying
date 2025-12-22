@@ -20,9 +20,13 @@ connectDB();
 app.use(helmet());
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:5000"], // cho phép FE React truy cập
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:5000",
+      "https://pomodoro-avici.netlify.app",
+    ], // cho phép FE React truy cập
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH" , "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
