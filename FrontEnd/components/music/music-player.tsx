@@ -43,54 +43,28 @@ export const MusicPlayer: React.FC = () => {
     (state: any) => state.user?.accessToken || "",
   );
 
-  // ✅ FIX: Xử lý thay đổi audio source tốt hơn
-  useEffect(() => {
-    if (!audioRef.current || !currentTrack) return;
+useEffect(() => {
+  if (!audioRef.current || !currentTrack) return;
 
-    const audio = audioRef.current;
+  const audio = audioRef.current;
 
-    // Dừng playback hiện tại trước khi đổi source
+  audio.pause();
+  setIsLoading(true);
+
+  audio.src = currentTrack.fileUrl; // ✅ CLOUDINARY URL
+  audio.load();
+  setCurrentTime(0);
+
+  if (isPlaying) {
+    audio.play().catch(() => {
+      setIsPlaying(false);
+    });
+  }
+
+  return () => {
     audio.pause();
-    setIsLoading(true);
-
-    // ✅ Xây dựng stream URL với token (nếu có)
-    let streamUrl = currentTrack.fileUrl;
-
-    // Chỉ thêm token nếu có và URL chưa có token
-    if (accessToken && !streamUrl.includes("token=")) {
-      const separator = streamUrl.includes("?") ? "&" : "?";
-      streamUrl = `${streamUrl}${separator}token=${accessToken}`;
-    }
-
-    // Đặt source mới
-    audio.src = streamUrl;
-    audio.load();
-    setCurrentTime(0);
-
-    // Phát sau khi load nếu đang trong trạng thái playing
-    if (isPlaying) {
-      const playPromise = audio.play();
-
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            setIsLoading(false);
-          })
-          .catch((error) => {
-            console.error("Phát nhạc thất bại:", error);
-            setIsLoading(false);
-            setIsPlaying(false);
-          });
-      }
-    } else {
-      setIsLoading(false);
-    }
-
-    // Cleanup khi component unmount
-    return () => {
-      audio.pause();
-    };
-  }, [currentTrack?.fileUrl, accessToken]); // ✅ Thêm accessToken vào dependencies
+  };
+}, [currentTrack?.fileUrl]);
 
   // ✅ Effect riêng cho điều khiển play/pause
   useEffect(() => {

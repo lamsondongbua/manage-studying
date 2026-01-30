@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-
 const MusicSchema = new mongoose.Schema(
   {
     userId: {
@@ -48,6 +47,10 @@ const MusicSchema = new mongoose.Schema(
     playCount: {
       type: Number,
       default: 0,
+    },
+    cloudinaryId: {
+      type: String,
+      required: true,
     },
   },
   { timestamps: true },

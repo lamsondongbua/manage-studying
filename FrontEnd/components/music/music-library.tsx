@@ -9,7 +9,6 @@ import {
   getMusicById,
   deleteMusic,
   incrementPlayCount,
-  getMusicStreamUrl,
 } from "../../services/apiServices";
 import { Music } from "../../types/index";
 import { formatTime } from "@/util/date";
@@ -23,12 +22,7 @@ export const MusicLibrary: React.FC = () => {
   const { addToPlaylist, setCurrentTrackIndex, setPlaylist, setIsPlaying } =
     useMusic();
 
-  const isAuthenticated = useSelector(
-    (state: any) => state.user.loggedIn,
-  );
-
-  // Lấy access token để streaming
-  const accessToken = useSelector((state: any) => state.user.accessToken);
+  const isAuthenticated = useSelector((state: any) => state.user.loggedIn);
 
   // ✅ FIX: Xử lý loading state đúng cách
   useEffect(() => {
@@ -55,37 +49,20 @@ export const MusicLibrary: React.FC = () => {
   };
 
   // Phát một bài
- const handlePlayMusic = async (music: Music) => {
-  try {
-    console.log("🎵 Play Music Called:", {
-      musicId: music._id,
-      title: music.title,
-      fileUrl: music.fileUrl, // ✅ Kiểm tra giá trị này
-    });
+  const handlePlayMusic = async (music: Music) => {
+    try {
+      const fullMusic = await getMusicById(music._id);
 
-    const fullMusic = await getMusicById(music._id);
-    
-    console.log("🎵 Full Music Data:", {
-      fullMusicFileUrl: fullMusic.fileUrl,
-      accessToken: accessToken ? `${accessToken.substring(0, 20)}...` : "none",
-    });
+      // ✅ DÙNG THẲNG CLOUDINARY URL
+      addToPlaylist(fullMusic);
 
-    const streamUrl = getMusicStreamUrl(music._id, accessToken);
-    
-    console.log("🔗 Final Stream URL:", streamUrl);
-
-    addToPlaylist({
-      ...fullMusic,
-      fileUrl: streamUrl,
-    });
-
-    setIsPlaying(true);
-    await incrementPlayCount(music._id);
-  } catch (error) {
-    console.error("❌ Lỗi phát nhạc:", error);
-    toast.error("Không thể phát nhạc");
-  }
-};
+      setIsPlaying(true);
+      await incrementPlayCount(music._id);
+    } catch (error) {
+      console.error("❌ Lỗi phát nhạc:", error);
+      toast.error("Không thể phát nhạc");
+    }
+  };
 
   // Xóa bài
   const handleDeleteMusic = async (id: string) => {
@@ -101,21 +78,20 @@ export const MusicLibrary: React.FC = () => {
     }
   };
 
-  // Phát tất cả
-  const handlePlayAll = () => {
-    if (!musicList.length) {
-      toast.error("Không có nhạc");
-      return;
+  const handlePlayAll = async () => {
+    if (!musicList.length) return;
+
+    try {
+      const fullTracks = await Promise.all(
+        musicList.map((m) => getMusicById(m._id)),
+      );
+
+      setPlaylist(fullTracks);
+      setCurrentTrackIndex(0);
+      setIsPlaying(true);
+    } catch {
+      toast.error("Không thể phát danh sách");
     }
-
-    const playlistWithUrls = musicList.map((m) => ({
-      ...m,
-      fileUrl: getMusicStreamUrl(m._id, accessToken),
-    }));
-
-    setPlaylist(playlistWithUrls);
-    setCurrentTrackIndex(0);
-    setIsPlaying(true);
   };
 
   // ✅ Hiển thị loading

@@ -341,21 +341,6 @@ const getMusicById = async (id: string) => {
   return res.data.data;
 };
 
-// Stream URL (chỉ build url)
-// apiServices.ts
-
-const getMusicStreamUrl = (musicId: string, token?: string): string => {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-  // ✅ SỬA: Đổi từ /stream/:id sang /:id/stream
-  let url = `${baseUrl}/api/music/${musicId}/stream`;
-  
-  if (token) {
-    url += `?token=${token}`;
-  }
-  
-  console.log("🔗 Stream URL:", url);
-  return url;
-};
 
 // Increment play count
 const incrementPlayCount = async (id: string) => {
@@ -382,7 +367,7 @@ const uploadMusic = async (
     },
   });
 
-  return res.data.music;
+  return res.data.data;
 };
 
 
@@ -423,6 +408,5 @@ export {
   getMusicById,
   deleteMusic,
   incrementPlayCount,
-  getMusicStreamUrl,
   uploadMusic
 };

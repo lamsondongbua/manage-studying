@@ -139,7 +139,6 @@ export default function Sidebar({
             )}
           </div>
         )}
-
         <Button
           onClick={handleLogout}
           disabled={isLoggingOut}
