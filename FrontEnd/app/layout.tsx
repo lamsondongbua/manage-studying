@@ -1,5 +1,6 @@
 import "./globals.css";
 import { Providers } from "./providers";
+import { MusicPlayer } from "@/components/music/music-player";
 
 export default function RootLayout({
   children,
@@ -9,7 +10,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <MusicPlayer />
+        </Providers>
       </body>
     </html>
   );

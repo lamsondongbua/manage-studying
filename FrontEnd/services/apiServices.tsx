@@ -328,6 +328,64 @@ const deleteTaskForUser = async (taskId: string) => {
   return response.data;
 };
 
+// Music
+// Get user's music
+const getUserMusic = async () => {
+  const res = await instance.get("/api/music");
+  return res.data.data;
+};
+
+// Get music detail
+const getMusicById = async (id: string) => {
+  const res = await instance.get(`/api/music/${id}`);
+  return res.data.data;
+};
+
+// Stream URL (chỉ build url)
+// apiServices.ts
+
+const getMusicStreamUrl = (musicId: string, token?: string): string => {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  // ✅ SỬA: Đổi từ /stream/:id sang /:id/stream
+  let url = `${baseUrl}/api/music/${musicId}/stream`;
+  
+  if (token) {
+    url += `?token=${token}`;
+  }
+  
+  console.log("🔗 Stream URL:", url);
+  return url;
+};
+
+// Increment play count
+const incrementPlayCount = async (id: string) => {
+  await instance.put(`/api/music/${id}/play`);
+};
+
+// Delete music
+const deleteMusic = async (id: string) => {
+  await instance.delete(`/api/music/${id}`);
+};
+
+// Upload music
+const uploadMusic = async (
+  formData: FormData,
+  onProgress?: (percent: number) => void
+) => {
+  const res = await instance.post("/api/music/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    onUploadProgress: (e) => {
+      if (!e.total || !onProgress) return;
+      onProgress(Math.round((e.loaded * 100) / e.total));
+    },
+  });
+
+  return res.data.music;
+};
+
+
 export {
   postRegister,
   postLogin,
@@ -360,5 +418,11 @@ export {
   getUserStatistics, 
   createTaskForUser,
   updateTaskForUser,
-  deleteTaskForUser
+  deleteTaskForUser,
+  getUserMusic,
+  getMusicById,
+  deleteMusic,
+  incrementPlayCount,
+  getMusicStreamUrl,
+  uploadMusic
 };

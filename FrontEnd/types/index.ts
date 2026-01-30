@@ -63,3 +63,13 @@ export interface User {
   email: string;
   name: string;
 }
+
+export interface Music {
+  _id: string;
+  title: string;
+  artist: string;
+  duration: number;
+  fileName: string;
+  playCount?: number;
+  createdAt: string;
+}

@@ -10,13 +10,20 @@ import StatsPage from "@/components/pages/stats-page";
 import { AdminProvider } from "@/contexts/admin-context";
 import AdminPage from "@/components/admin/admin-page";
 import Settings from "./pages/settings";
+import { MusicLibrary } from "@/components/music/music-library";
 
 interface MainAppProps {
   user: any;
   setUser: (user: any) => void;
 }
 
-type PageType = "dashboard" | "countdown" | "stats" | "settings" | "admin";
+type PageType =
+  | "dashboard"
+  | "countdown"
+  | "stats"
+  | "settings"
+  | "admin"
+  | "music";
 
 export default function MainApp({ user, setUser }: MainAppProps) {
   const [currentPage, setCurrentPage] = useState<PageType>("dashboard");
@@ -24,10 +31,10 @@ export default function MainApp({ user, setUser }: MainAppProps) {
 
   const handleLogout = () => {
     console.log("🚪 [MainApp] Logging out");
-    
+
     // ✅ Dispatch logout action để clear Redux state
     dispatch(logout());
-    
+
     // ✅ Clear React state
     setUser(null);
   };
@@ -45,8 +52,15 @@ export default function MainApp({ user, setUser }: MainAppProps) {
           {currentPage === "dashboard" && <Dashboard />}
           {currentPage === "countdown" && <CountdownPage />}
           {currentPage === "stats" && <StatsPage />}
-          {currentPage === "settings" && <Settings/>}
+          {currentPage === "settings" && <Settings />}
           {currentPage === "admin" && <AdminPage />}
+          {currentPage === "music" && (
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 p-6 pb-32">
+              <div className="max-w-6xl">
+                <MusicLibrary />
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </AdminProvider>

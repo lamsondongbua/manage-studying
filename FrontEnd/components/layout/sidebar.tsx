@@ -28,6 +28,7 @@ export default function Sidebar({
     { id: "countdown", label: "Countdown", icon: "⏱️" },
     { id: "stats", label: "Thống kê", icon: "📈" },
     { id: "settings", label: "Cài đặt", icon: "⚙️" },
+    { id: "music", label: "Nhạc", icon: "🎵" },
     { id: "admin", label: "Admin", icon: "🔧", adminOnly: true }, // Thêm flag adminOnly
   ];
 
@@ -46,7 +47,7 @@ export default function Sidebar({
 
       if (isRunning && activeSessionId) {
         const confirmed = window.confirm(
-          "Bạn đang có session đang chạy. Session sẽ được tạm dừng khi đăng xuất. Tiếp tục?"
+          "Bạn đang có session đang chạy. Session sẽ được tạm dừng khi đăng xuất. Tiếp tục?",
         );
 
         if (!confirmed) {

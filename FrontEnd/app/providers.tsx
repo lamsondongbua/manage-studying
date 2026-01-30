@@ -9,6 +9,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { SoundProvider } from "@/contexts/sound-context";
 import { AdminProvider } from "@/contexts/admin-context"; // ✅ THÊM IMPORT
+import { MusicProvider } from "@/contexts/music-context"; // ✅ THÊM IMPORT MUSIC PROVIDER
 import FocusModeGuard from "@/components/focus/FocusModeGuard";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -29,23 +30,25 @@ export function Providers({ children }: { children: React.ReactNode }) {
           clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}
         >
           <SoundProvider>
-            {/* ✅ WRAP AdminProvider */}
-            <AdminProvider>
-              <FocusModeGuard /> {/* ✅ GLOBAL */}
-              {children}
-              <ToastContainer
-                position="top-right"
-                autoClose={3000}
-                hideProgressBar={false}
-                newestOnTop={false}
-                closeOnClick
-                rtl={false}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
-                theme="colored"
-              />
-            </AdminProvider>
+            <MusicProvider>
+              {/* ✅ WRAP AdminProvider */}
+              <AdminProvider>
+                <FocusModeGuard /> {/* ✅ GLOBAL */}
+                {children}
+                <ToastContainer
+                  position="top-right"
+                  autoClose={3000}
+                  hideProgressBar={false}
+                  newestOnTop={false}
+                  closeOnClick
+                  rtl={false}
+                  pauseOnFocusLoss
+                  draggable
+                  pauseOnHover
+                  theme="colored"
+                />
+              </AdminProvider>
+            </MusicProvider>
           </SoundProvider>
         </GoogleOAuthProvider>
       </PersistGate>

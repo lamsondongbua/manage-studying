@@ -49,6 +49,11 @@ app.use("/api/pomodoro", require("./routes/pomodoro"));
 app.use("/api/blocked-sites", require("./routes/blockedSites"));
 app.use("/api/logs", require("./routes/logs"));
 app.use("/api/users", require("./routes/users"));
+app.use("/api/music", require("./routes/music"));
+
+// Serve static files for uploads
+const path = require("path");
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Middleware xử lý lỗi tổng thể
 app.use(errorHandler);
