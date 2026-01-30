@@ -32,39 +32,53 @@ export const MusicPlayer: React.FC = () => {
     setRepeatMode,
     isShuffle,
     setIsShuffle,
+    resetMusic
   } = useMusic();
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const loggedIn = useSelector((state: any) => state.user?.loggedIn === true);
+  
 
+  useEffect(() => {
+    if (!loggedIn) {
+      // ⛔ dừng audio ngay lập tức
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
+
+      resetMusic();
+    }
+  }, [loggedIn]);
   // ✅ Lấy access token từ Redux store (với fallback)
   const accessToken = useSelector(
     (state: any) => state.user?.accessToken || "",
   );
 
-useEffect(() => {
-  if (!audioRef.current || !currentTrack) return;
+  useEffect(() => {
+    if (!audioRef.current || !currentTrack) return;
 
-  const audio = audioRef.current;
+    const audio = audioRef.current;
 
-  audio.pause();
-  setIsLoading(true);
-
-  audio.src = currentTrack.fileUrl; // ✅ CLOUDINARY URL
-  audio.load();
-  setCurrentTime(0);
-
-  if (isPlaying) {
-    audio.play().catch(() => {
-      setIsPlaying(false);
-    });
-  }
-
-  return () => {
     audio.pause();
-  };
-}, [currentTrack?.fileUrl]);
+    setIsLoading(true);
+
+    audio.src = currentTrack.fileUrl; // ✅ CLOUDINARY URL
+    audio.load();
+    setCurrentTime(0);
+
+    if (isPlaying) {
+      audio.play().catch(() => {
+        setIsPlaying(false);
+      });
+    }
+
+    return () => {
+      audio.pause();
+    };
+  }, [currentTrack?.fileUrl]);
 
   // ✅ Effect riêng cho điều khiển play/pause
   useEffect(() => {
@@ -107,8 +121,6 @@ useEffect(() => {
     }
     setIsLoading(false);
   };
-
-
 
   const handleCanPlay = () => {
     setIsLoading(false);
@@ -233,6 +245,11 @@ useEffect(() => {
     const nextIndex = (currentIndex + 1) % modes.length;
     setRepeatMode(modes[nextIndex]);
   };
+
+  // ❌ Chưa login → không render MusicPlayer
+  if (!loggedIn) {
+    return null;
+  }
 
   if (!currentTrack || playlist.length === 0) {
     return (
@@ -379,4 +396,4 @@ useEffect(() => {
       </div>
     </div>
   );
-};;
+};;;

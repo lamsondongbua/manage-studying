@@ -109,48 +109,47 @@ export default function Sidebar({
             )}
           </button>
         ))}
-      </nav>
+        <div className="border-t border-white/20 p-4 space-y-3 animate-slide-up backdrop-blur-sm ">
+          {isOpen && (
+            <div className="text-sm animate-fade-in">
+              <p className="text-white/70 text-xs uppercase tracking-wider">
+                Đang đăng nhập
+              </p>
+              <p className="font-bold text-white truncate mt-1">
+                {user?.name || user?.email}
+              </p>
+              {/* Hiển thị badge Admin nếu là admin */}
+              {user?.role === "admin" && (
+                <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500/20 border border-yellow-400/30 rounded-md">
+                  <span className="text-xs text-yellow-200 font-semibold">
+                    👑 Admin
+                  </span>
+                </div>
+              )}
 
-      <div className="border-t border-white/20 p-4 space-y-3 animate-slide-up backdrop-blur-sm">
-        {isOpen && (
-          <div className="text-sm animate-fade-in">
-            <p className="text-white/70 text-xs uppercase tracking-wider">
-              Đang đăng nhập
-            </p>
-            <p className="font-bold text-white truncate mt-1">
-              {user?.name || user?.email}
-            </p>
-            {/* Hiển thị badge Admin nếu là admin */}
-            {user?.role === "admin" && (
-              <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500/20 border border-yellow-400/30 rounded-md">
-                <span className="text-xs text-yellow-200 font-semibold">
-                  👑 Admin
-                </span>
-              </div>
-            )}
-
-            {isRunning && (
-              <div className="mt-2 flex items-center gap-2 px-2 py-1 bg-green-500/20 border border-green-400/30 rounded-lg">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                <span className="text-xs text-green-200 font-medium">
-                  Timer đang chạy
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-        <Button
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-          className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white border-0 font-semibold transition-all active:scale-95 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoggingOut ? (
-            <>{isOpen ? "⏳ Đang đăng xuất..." : "⏳"}</>
-          ) : (
-            <>{isOpen ? "🚪 Đăng xuất" : "🚪"}</>
+              {isRunning && (
+                <div className="mt-2 flex items-center gap-2 px-2 py-1 bg-green-500/20 border border-green-400/30 rounded-lg">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                  <span className="text-xs text-green-200 font-medium">
+                    Timer đang chạy
+                  </span>
+                </div>
+              )}
+            </div>
           )}
-        </Button>
-      </div>
+          <Button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white border-0 font-semibold transition-all active:scale-95 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoggingOut ? (
+              <>{isOpen ? "⏳ Đang đăng xuất..." : "⏳"}</>
+            ) : (
+              <>{isOpen ? "🚪 Đăng xuất" : "🚪"}</>
+            )}
+          </Button>
+        </div>
+      </nav>
     </div>
   );
 }

@@ -53,16 +53,18 @@ export const MusicLibrary: React.FC = () => {
     try {
       const fullMusic = await getMusicById(music._id);
 
-      // ✅ DÙNG THẲNG CLOUDINARY URL
-      addToPlaylist(fullMusic);
-
+      // ✅ COI NHƯ PHÁT MỚI HOÀN TOÀN
+      setPlaylist([fullMusic]); // replace playlist
+      setCurrentTrackIndex(0); // bài mới = current
       setIsPlaying(true);
+
       await incrementPlayCount(music._id);
     } catch (error) {
       console.error("❌ Lỗi phát nhạc:", error);
       toast.error("Không thể phát nhạc");
     }
   };
+
 
   // Xóa bài
   const handleDeleteMusic = async (id: string) => {

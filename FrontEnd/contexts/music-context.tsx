@@ -52,6 +52,7 @@ interface MusicContextType {
   setRepeatMode: (mode: "off" | "one" | "all") => void;
   isShuffle: boolean;
   setIsShuffle: (shuffle: boolean) => void;
+  resetMusic: () => void;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
@@ -75,6 +76,17 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
       if (exists) return prev;
       return [...prev, music];
     });
+  };
+
+  const resetMusic = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setCurrentTrackIndex(0);
+    setPlaylist([]);
+    setQueue([]);
+    setRepeatMode("off");
+    setIsShuffle(false);
+    setShowPlayer(false); // optional
   };
 
   
@@ -107,6 +119,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
     setRepeatMode,
     isShuffle,
     setIsShuffle,
+    resetMusic
   };
 
   return (
