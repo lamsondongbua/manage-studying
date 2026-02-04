@@ -370,6 +370,24 @@ const uploadMusic = async (
   return res.data.data;
 };
 
+//AI
+const chatWithAI = async (
+  message: string,
+  context: {
+    task: string;
+    pomodoroStatus: string;
+    timeRemaining: number;
+    completedSessionsToday: number;
+  },
+): Promise<string> => {
+  const res = await instance.post("/api/ai/chat", {
+    message,
+    context,
+  });
+
+  return res.data.reply;
+};
+
 
 export {
   postRegister,
@@ -408,5 +426,6 @@ export {
   getMusicById,
   deleteMusic,
   incrementPlayCount,
-  uploadMusic
+  uploadMusic,
+  chatWithAI
 };

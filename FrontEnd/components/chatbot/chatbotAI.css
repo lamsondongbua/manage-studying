@@ -1,0 +1,17 @@
+:root {
+  --chatbot-bottom: 110px;
+}
+
+/* Nút chatbot */
+.chatbot-fab {
+  bottom: var(--chatbot-bottom);
+}
+
+.form-container{
+    height: 80px;
+}
+
+/* Khung chat (desktop) */
+.chatbot-window {
+  bottom: calc(var(--chatbot-bottom) + 60px);
+}

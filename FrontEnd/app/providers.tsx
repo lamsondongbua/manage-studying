@@ -10,7 +10,9 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { SoundProvider } from "@/contexts/sound-context";
 import { AdminProvider } from "@/contexts/admin-context"; // ✅ THÊM IMPORT
 import { MusicProvider } from "@/contexts/music-context"; // ✅ THÊM IMPORT MUSIC PROVIDER
+import { AppProvider } from "@/contexts/app-context";
 import FocusModeGuard from "@/components/focus/FocusModeGuard";
+import { ChatbotProvider } from "@/contexts/chatbot-context";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -33,20 +35,24 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <MusicProvider>
               {/* ✅ WRAP AdminProvider */}
               <AdminProvider>
-                <FocusModeGuard /> {/* ✅ GLOBAL */}
-                {children}
-                <ToastContainer
-                  position="top-right"
-                  autoClose={3000}
-                  hideProgressBar={false}
-                  newestOnTop={false}
-                  closeOnClick
-                  rtl={false}
-                  pauseOnFocusLoss
-                  draggable
-                  pauseOnHover
-                  theme="colored"
-                />
+                <AppProvider>
+                  <ChatbotProvider>
+                    <FocusModeGuard /> {/* ✅ GLOBAL */}
+                    {children}
+                    <ToastContainer
+                      position="top-right"
+                      autoClose={3000}
+                      hideProgressBar={false}
+                      newestOnTop={false}
+                      closeOnClick
+                      rtl={false}
+                      pauseOnFocusLoss
+                      draggable
+                      pauseOnHover
+                      theme="colored"
+                    />
+                  </ChatbotProvider>
+                </AppProvider>
               </AdminProvider>
             </MusicProvider>
           </SoundProvider>

@@ -11,6 +11,7 @@ import { AdminProvider } from "@/contexts/admin-context";
 import AdminPage from "@/components/admin/admin-page";
 import Settings from "./pages/settings";
 import { MusicLibrary } from "@/components/music/music-library";
+import ChatbotResponsive from "./chatbot/chatbotAI";
 
 interface MainAppProps {
   user: any;
@@ -62,6 +63,7 @@ export default function MainApp({ user, setUser }: MainAppProps) {
             </div>
           )}
         </main>
+        <ChatbotResponsive />
       </div>
     </AdminProvider>
   );

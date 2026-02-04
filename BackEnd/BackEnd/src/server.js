@@ -50,6 +50,8 @@ app.use("/api/blocked-sites", require("./routes/blockedSites"));
 app.use("/api/logs", require("./routes/logs"));
 app.use("/api/users", require("./routes/users"));
 app.use("/api/music", require("./routes/music"));
+app.use("/api/ai", require("./routes/ai"));
+
 
 // Serve static files for uploads
 const path = require("path");
