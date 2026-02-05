@@ -91,10 +91,12 @@ const deleteTaskByID = async (id: string) => {
 // Start một session mới
 // Sửa pomodoroStart để nhận taskName
 const pomodoroStart = async (
+  taskId?: string,
   taskName?: string,
   duration?: number
 ): Promise<Session> => {
   const res = await instance.post("/api/pomodoro/start", {
+    taskId,
     taskName: taskName || "Pomodoro Session",
     duration: duration,
   });
@@ -108,13 +110,10 @@ const pomodoroStart = async (
 const pomodoroStop = async (sessionId: string): Promise<Session> => {
   const res = await instance.post("/api/pomodoro/stop", { sessionId });
 
-  // 1. Lấy dữ liệu trực tiếp từ response
   const sessionData = res.data; 
 
-  // 2. Kiểm tra log để đảm bảo dữ liệu là object
-  if (!sessionData || !sessionData._id) {
+  if (!sessionData || !sessionData.id) {
       console.error("❌ pomodoroStop: Backend did not return a valid session object.");
-      // Tùy chọn: throw error hoặc trả về một session lỗi
       throw new Error("Failed to stop session: Invalid response from server."); 
   }
 
@@ -148,12 +147,13 @@ const mapSessionFromBackend = (item: any): Session => {
   }
 
   return {
-    id: item._id,
+    id: item.id,
+    taskId: item.taskId ?? "", // ✅ THÊM
     taskName: item.taskName || "Pomodoro Session",
-    duration: item.durationMinutes || 25,
+    duration: item.duration || 25,
     status: status,
-    startedAt: new Date(item.startTime),
-    completedAt: item.isCompleted ? new Date(item.endTime) : undefined,
+    startedAt: item.startedAt, // ✅ string ISO
+    completedAt: item.completedAt, // ✅ string ISO | null
     timeRemaining: item.timeRemaining,
     isCompleted: item.isCompleted, // ✅ THÊM DÒNG NÀY
     pausedAt: item.pausedAt, // ✅ THÊM LUÔN pausedAt
@@ -262,12 +262,13 @@ const mapSessionFromBackendAdmin = (item: any): Session & { userInfo?: any } => 
   }
 
   return {
-    id: item._id,
+    id: item.id,
+    taskId: item.taskId ?? "", // ✅ FIX DUY NHẤT Ở ĐÂY
     taskName: item.taskName || "Pomodoro Session",
     duration: item.durationMinutes || 25,
     status: status,
-    startedAt: new Date(item.startTime),
-    completedAt: item.isCompleted ? new Date(item.endTime) : undefined,
+    startedAt: item.startedAt,
+    completedAt: item.completedAt,
     timeRemaining: item.timeRemaining,
     isCompleted: item.isCompleted,
     pausedAt: item.pausedAt,

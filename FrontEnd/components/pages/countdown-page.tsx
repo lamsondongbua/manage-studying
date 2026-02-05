@@ -29,6 +29,8 @@ export default function CountdownPage() {
     skipBreak,
   } = useAppContext();
 
+  
+
   const [isPausedLocal, setIsPausedLocal] = useState(!isRunning);
 
   const hasAutoResumedRef = useRef<Set<string>>(new Set());

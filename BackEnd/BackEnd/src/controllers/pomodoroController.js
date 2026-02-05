@@ -1,16 +1,21 @@
 const Pomodoro = require("../models/PomodoroSession");
+const Task = require("../models/Task");
+
 exports.start = async (req, res) => {
   try {
-    const { taskName, duration } = req.body;
+    const { taskId, taskName, duration } = req.body;
     const durationMinutes = parseInt(duration) > 0 ? parseInt(duration) : 25;
 
     const session = new Pomodoro({
       user: req.user._id,
+      taskId: taskId || null,
       taskName: taskName || "Pomodoro Session",
       startTime: new Date(),
       durationMinutes,
       totalPausedTime: 0,
       pausedAt: null,
+      status: "running",
+      isCompleted: false,
     });
 
     await session.save();
@@ -49,8 +54,14 @@ exports.stop = async (req, res) => {
     session.endTime = new Date();
     session.isCompleted = true;
     session.status = "completed"; // ✅ Cập nhật cả status field
-    
+
     await session.save();
+
+    if (session.taskId) {
+      await Task.findByIdAndUpdate(session.taskId, {
+        $set: { completed: true },
+      });
+    }
 
     console.log(`✅ Session ${sessionId} stopped and marked as completed`);
 
@@ -64,9 +75,6 @@ exports.stop = async (req, res) => {
     res.status(500).json({ error: "Server error", details: err.message });
   }
 };
-
-
-
 
 // ✅ Pause - Chỉ lưu timestamp
 exports.pause = async (req, res) => {
@@ -85,6 +93,7 @@ exports.pause = async (req, res) => {
     // Nếu chưa pause → set pausedAt
     if (!session.pausedAt) {
       session.pausedAt = new Date();
+      session.status = "paused";
       await session.save();
       console.log("⏸️ Session paused at:", session.pausedAt);
     }
@@ -105,8 +114,9 @@ exports.resume = async (req, res) => {
   console.log("🔥 RESUME ENDPOINT ĐƯỢC GỌI!"); // ← THÊM DÒNG NÀY
   console.log("📦 Body:", req.body);
   console.log("👤 User:", req.user?._id);
-  
+
   const { sessionId } = req.body;
+  console.log("SessionId để resume:", sessionId);
   try {
     const session = await Pomodoro.findOne({
       _id: sessionId,
@@ -122,9 +132,14 @@ exports.resume = async (req, res) => {
     if (session.pausedAt) {
       const pausedDuration = (new Date() - new Date(session.pausedAt)) / 1000;
       session.totalPausedTime += Math.floor(pausedDuration);
+      session.status = "running";
       session.pausedAt = null;
       await session.save();
-      console.log("▶️ Session resumed, total paused time:", session.totalPausedTime, "seconds");
+      console.log(
+        "▶️ Session resumed, total paused time:",
+        session.totalPausedTime,
+        "seconds",
+      );
     }
 
     const response = session.toObject();
@@ -141,7 +156,7 @@ exports.resume = async (req, res) => {
 exports.history = async (req, res) => {
   try {
     console.log("🔍 History endpoint called");
-    
+
     // ✅ Check if req.user exists
     if (!req.user || !req.user._id) {
       console.error("❌ req.user is undefined or missing _id");
@@ -152,8 +167,8 @@ exports.history = async (req, res) => {
     console.log("👤 User ID:", userId);
 
     // ✅ Query sessions
-    const sessions = await Pomodoro.find({ 
-      user: req.user._id
+    const sessions = await Pomodoro.find({
+      user: req.user._id,
     })
       .sort({ startTime: -1 })
       .limit(100)
@@ -170,7 +185,7 @@ exports.history = async (req, res) => {
     // ✅ Map qua từng session và tính timeRemaining
     const sessionsWithTime = sessions.map((session) => {
       let timeRemaining = 0;
-      
+
       if (!session.isCompleted) {
         const totalSeconds = session.durationMinutes * 60;
         const now = new Date();
@@ -184,29 +199,27 @@ exports.history = async (req, res) => {
       }
 
       return {
-        _id: session._id,
+        id: session._id.toString(), 
+        taskId: session.taskId?.toString() || null,
         taskName: session.taskName,
-        startTime: session.startTime,
-        endTime: session.endTime,
-        durationMinutes: session.durationMinutes,
+        startedAt: session.startTime,
+        completedAt: session.endTime,
+        duration: session.durationMinutes *60,
         status: session.status,
         pausedAt: session.pausedAt,
-        totalPausedTime: session.totalPausedTime,
         isCompleted: session.isCompleted,
-        timeRemaining: timeRemaining,
-        createdAt: session.createdAt,
-        updatedAt: session.updatedAt
+        timeRemaining,
       };
+
     });
 
     console.log(`✅ History retrieved: ${sessionsWithTime.length} sessions`);
     res.json(sessionsWithTime);
-    
   } catch (err) {
     console.error("❌ Error fetching history:", err.message);
-    res.status(500).json({ 
-      error: "Server error", 
-      details: err.message 
+    res.status(500).json({
+      error: "Server error",
+      details: err.message,
     });
   }
 };
@@ -224,7 +237,6 @@ exports.adminGetAllSessions = async (req, res) => {
   }
 };
 
-
 exports.getSessionsByUserId = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -241,16 +253,16 @@ exports.getSessionsByUserId = async (req, res) => {
 
     // Phân loại sessions
     const completedSessions = sessions.filter((s) => s.isCompleted === true);
-    const incompleteSessions = sessions.filter((s) => s.isCompleted !== true);
+    const incompleteSessions = sessions.filter((s) => s.isCompleted === false);
 
     // Tính tổng phút đã hoàn thành
     const totalMinutes = completedSessions.reduce(
       (sum, s) => sum + (s.durationMinutes || 0),
-      0
+      0,
     );
 
     console.log(
-      `📋 Admin fetched ${sessions.length} sessions for user ${userId}`
+      `📋 Admin fetched ${sessions.length} sessions for user ${userId}`,
     );
 
     res.json({
@@ -289,9 +301,9 @@ exports.deleteSession = async (req, res) => {
 
     console.log(`✅ Admin deleted session ${sessionId}`);
 
-    res.json({ 
+    res.json({
       msg: "Session deleted successfully",
-      deletedSession: session 
+      deletedSession: session,
     });
   } catch (err) {
     console.error("❌ deleteSession error:", err);

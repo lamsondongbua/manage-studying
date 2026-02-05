@@ -7,7 +7,11 @@ const PomodoroSchema = new mongoose.Schema(
     startTime: { type: Date, required: true },
     endTime: { type: Date },
     durationMinutes: { type: Number, default: 0 },
-    status: {type: String, default: "running"},
+    status: {
+      type: String,
+      enum: ["running", "paused", "completed"],
+      default: "running",
+    },
     pausedAt: {
       type: Date,
       default: null,
@@ -17,8 +21,27 @@ const PomodoroSchema = new mongoose.Schema(
       default: 0, // Tổng thời gian đã pause (giây)
     },
     isCompleted: { type: Boolean, default: false },
+    taskId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Task",
+      required: false,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform: (_, ret) => {
+        ret.id = ret._id;
+        delete ret._id;
+        delete ret.__v;
+        return ret;
+      },
+    },
+    toObject: {
+      virtuals: true,
+    },
+  },
 );
 
 // ✅ Method tính thời gian còn lại - FIX: Xử lý trường hợp đang pause

@@ -34,7 +34,7 @@ interface AllTasksData {
 }
 
 interface AllSessionsData {
-  _id: string;
+  id: string;
   taskName: string;
   durationMinutes: number;
   startTime: string;
@@ -753,7 +753,7 @@ export default function AdminAllDataPage() {
                       {filteredSessions.length > 0 ? (
                         filteredSessions.map((session) => (
                           <tr
-                            key={session._id}
+                            key={session.id}
                             className="border-b border-white/5 hover:bg-white/5 transition-colors"
                           >
                             <td className="py-3 px-4">
@@ -799,7 +799,7 @@ export default function AdminAllDataPage() {
                               <div className="flex items-center justify-center">
                                 <button
                                   onClick={() =>
-                                    handleDeleteSession(session._id)
+                                    handleDeleteSession(session.id)
                                   }
                                   className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
                                   title="Xóa"

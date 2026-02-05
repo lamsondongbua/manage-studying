@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Task } from "@/types/index";
+import { getTasks } from "@/services/apiServices";
 
 interface TaskEditModalProps {
   task: Task;
@@ -56,6 +57,7 @@ export default function TaskEditModal({
         description,
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
       });
+      await getTasks();
       onClose();
     } catch (err) {
       console.error(err);

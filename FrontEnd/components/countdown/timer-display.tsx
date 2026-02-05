@@ -58,15 +58,32 @@ export default function TimerDisplay({
     setShowSettings(false);
   };
 
+  const handleComplete = () => {
+    if (!session) {
+      console.warn("⚠️ Cannot complete: No active session");
+      return;
+    }
+
+    if (session.status === "completed") {
+      console.warn("⚠️ Cannot complete: Session already completed");
+      return;
+    }
+
+    onComplete();
+  };
+
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const totalDuration = isBreak
-    ? breakTime * 60
-    : (session?.duration ?? 25) * 60;
+  // ✅ duration focus LUÔN LÀ GIÂY
+  const focusDurationSeconds =
+    session?.duration && session.duration > 0 ? session.duration : 25 * 60;
+
+  // ✅ total duration (giây)
+  const totalDuration = isBreak ? breakTime * 60 : focusDurationSeconds;
 
   const safeTotal = totalDuration > 0 ? totalDuration : 1;
   const progress = ((safeTotal - timeRemaining) / safeTotal) * 100;
@@ -81,6 +98,7 @@ export default function TimerDisplay({
       : "Short Break"
     : null;
 
+  const canComplete = !isBreak && session && session.status !== "completed";
   return (
     <div className="relative w-full max-w-md mx-auto aspect-square bg-white dark:bg-slate-900 rounded-full shadow-2xl flex flex-col items-center justify-center p-8 border-4 border-slate-100 dark:border-slate-800">
       <svg
@@ -236,9 +254,18 @@ export default function TimerDisplay({
             </button>
           ) : (
             <button
-              onClick={onComplete}
-              className="p-3 rounded-full text-slate-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors"
-              title="Complete Session Early"
+              onClick={handleComplete}
+              disabled={!canComplete}
+              className={`p-3 rounded-full transition-colors ${
+                canComplete
+                  ? "text-slate-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 cursor-pointer"
+                  : "text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-50"
+              }`}
+              title={
+                canComplete
+                  ? "Complete Session Early"
+                  : "Session already completed"
+              }
             >
               <CheckCircle size={22} />
             </button>

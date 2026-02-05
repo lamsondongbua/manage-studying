@@ -35,20 +35,22 @@ export interface Task {
   dueDate?: string;
   duration: number;
   completed: boolean;
+  inProgress?: boolean; // ✅ thêm
   createdAt: string;
 }
 
 // ✅ Session type với optional userInfo cho admin
 export interface Session {
   id: string;
+  taskId?: string;
   taskName: string;
   duration: number; // in minutes
   status: "running" | "paused" | "completed";
   timeRemaining?: number; // in seconds
   isCompleted?: boolean;
-  pausedAt?: Date | null;
-  startedAt?: Date;
-  completedAt?: Date;
+  pausedAt?: string | null;
+  startedAt?: string;
+  completedAt?: string;
   userInfo?: {
     _id: string;
     username?: string;

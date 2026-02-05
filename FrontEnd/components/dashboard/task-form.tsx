@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAppContext } from "@/contexts/app-context";
-import { postTask } from "../../services/apiServices"; 
+import {  postTask } from "../../services/apiServices"; 
 import { toast } from "react-toastify";
 
 interface TaskFormProps {
@@ -10,7 +10,7 @@ interface TaskFormProps {
 }
 
 export default function TaskForm({ onClose }: TaskFormProps) {
-  const { addTask } = useAppContext();
+  const { fetchTasks } = useAppContext();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [hours, setHours] = useState("0");
@@ -42,12 +42,13 @@ export default function TaskForm({ onClose }: TaskFormProps) {
         name,
         description,
         dueDate,
-        totalMinutes
+        totalMinutes,
       );
       const taskWithDuration = { ...createdTask, duration: totalMinutes };
       console.log("✅ Task created:", taskWithDuration); // ✅ Debug
 
-      addTask(taskWithDuration);
+      await fetchTasks();
+
 
       setName("");
       setDescription("");

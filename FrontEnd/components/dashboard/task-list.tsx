@@ -15,6 +15,7 @@ export default function TaskList({
   onRemoveTask,
   onEditTask,
 }: TaskListProps) {
+  
   if (tasks.length === 0) {
     return (
       <div className="text-center py-16 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 rounded-3xl border-2 border-dashed border-purple-200 dark:border-purple-800">

@@ -7,9 +7,11 @@ interface CompletedTasksProps {
 }
 
 export default function CompletedTasks({ sessions }: CompletedTasksProps) {
+  console.log("Sessions: ", sessions);
   const getTotalTime = () =>
-    sessions.reduce((total, s) => total + s.duration, 0);
-  const formatTime = (minutes: number) => {
+    sessions.reduce((total, s) => total + (s.duration ?? 0), 0);
+  const formatTimeFromSeconds = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
@@ -33,7 +35,7 @@ export default function CompletedTasks({ sessions }: CompletedTasksProps) {
               Tổng thời gian
             </p>
             <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400 bg-clip-text text-transparent">
-              {formatTime(getTotalTime())}
+              {formatTimeFromSeconds(getTotalTime())}
             </p>
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-3">
               ✓ {sessions.length} công việc hoàn thành
@@ -50,7 +52,7 @@ export default function CompletedTasks({ sessions }: CompletedTasksProps) {
                   {session.taskName}
                 </p>
                 <p className="text-emerald-700 dark:text-emerald-300 text-xs mt-2 flex items-center gap-1">
-                  ⏱️ {formatTime(session.duration)}
+                  ⏱️ {formatTimeFromSeconds(session.duration)}
                 </p>
               </div>
             ))}
