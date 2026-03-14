@@ -1,0 +1,1 @@
+A study management application that helps students organize study schedules, manage learning tasks, and track progress. The system allows users to create tasks, countdown time, manage study plans, and monitor completion status, upload and listen music when using the web. The web have focus mode, alert when using other web. 
